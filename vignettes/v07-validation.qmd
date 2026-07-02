@@ -196,12 +196,16 @@ methods do not all learn from the same information. We still validate all
 outputs on the same benchmark OD table and the same OD rows.
 
 ```{r method-inputs, echo=FALSE}
-validation_display_method_inputs()
+validation_display_method_inputs(
+  methods = c(validation_broad_methods, validation_bayesian_sensitivity_methods)
+)
 ```
 
 The comparison fits deterministic adjustment methods and then adds full-LAD
-Bayesian `coverage_offset` results generated with `debiasR` on the same inputs.
-Every displayed output uses the full LAD support prepared above.
+Bayesian results generated with `debiasR` on the same inputs. The main Bayesian
+comparison uses `coverage_offset` results because those are on a true-flow
+scale. The `reduced_form` result is kept as a separate MPD-scale sensitivity
+check. Every complete-grid output uses the full LAD support prepared above.
 
 ```{r build-method-results}
 deterministic_results <- list(
@@ -244,6 +248,7 @@ deterministic_method_results <- deterministic_results |>
   validation_standardize_adjusted_outputs(mpd_df = mpd_od)
 
 bayesian_metadata <- validation_load_v07_bayesian_metadata()
+bayesian_selection <- validation_load_v07_bayesian_selection()
 validation_assert_bayesian_fingerprint(
   metadata = bayesian_metadata,
   mpd_df = mpd_od,
@@ -259,17 +264,26 @@ all_method_results <- c(deterministic_method_results, bayesian_method_results)
 
 method_results <- all_method_results[validation_teaching_methods]
 broad_method_results <- all_method_results[validation_broad_methods]
+bayesian_sensitivity_methods <- intersect(
+  validation_bayesian_sensitivity_methods,
+  names(all_method_results)
+)
+bayesian_sensitivity_results <- all_method_results[bayesian_sensitivity_methods]
 ```
 
-The Bayesian rows currently reported in this vignette are four full-LAD
+The Bayesian rows currently reported in the main comparison are full-LAD
 `coverage_offset` specifications. They use observed MPD flows, active-user
 coverage, area covariates and OD distances, but not benchmark OD cells, during
-fitting. `reduced_form` and `latent_two_level` are explained in the advanced
-Bayesian vignette; they will be added to this validation vignette only after
-their full-LAD or repeated-source/time results are available.
+fitting. The reduced-form row below is generated on the same full-LAD support,
+but it has a different interpretation: its adjusted flow is an MPD-scale
+counterfactual rather than a true-flow estimate.
 
 ```{r bayesian-specifications, echo=FALSE}
 validation_display_bayesian_specs(bayesian_metadata)
+```
+
+```{r bayesian-selection, echo=FALSE}
+validation_display_bayesian_selection(bayesian_selection)
 ```
 
 Before validating, we check that every method output uses the same OD pairs and
@@ -305,7 +319,7 @@ compact broader comparison. This table includes the unadjusted MPD baseline,
 five deterministic adjustment methods and the available full-LAD Bayesian
 `coverage_offset` specifications. It uses only the adjusted-versus-benchmark
 comparison, because that is the main question: how close is each final output
-to the benchmark OD table?
+to the benchmark OD table on the same true-flow scale?
 
 The column called "Benchmark used to fit" is important. Some deterministic
 methods use benchmark totals or benchmark OD cells during calibration. The
@@ -342,6 +356,30 @@ rate II, Raking ratio and Coefficient adjustment. The Bayesian rows in the
 broader table show how the existing full-LAD `coverage_offset` specifications
 compare with that deterministic set; the advanced Bayesian vignette explains
 the Bayesian model variants, parameters and returned columns in more detail.
+
+### Bayesian sensitivity checks
+
+The reduced-form Bayesian result is shown separately because it answers a
+different question. It estimates an MPD-scale counterfactual after neutralising
+the fitted bias term. This can be useful for continuity with earlier
+reduced-form analyses, but it should not be read as the same true-flow quantity
+as the `coverage_offset` rows above.
+
+```{r bayesian-sensitivity-comparison, echo=FALSE}
+if (length(bayesian_sensitivity_results) > 0L) {
+  bayesian_sensitivity_overall <- validation_overall_results(
+    adjusted_outputs = bayesian_sensitivity_results,
+    benchmark_df = benchmark_od,
+    comparisons = "adjusted_vs_benchmark"
+  )
+
+  validation_display_compact_overall_metrics(
+    bayesian_sensitivity_overall,
+    methods = bayesian_sensitivity_methods,
+    include_benchmark_used = TRUE
+  )
+}
+```
 
 ## Level 1: Overall validation metrics
 

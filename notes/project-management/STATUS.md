@@ -85,11 +85,14 @@ Last updated: 2026-07-02
   ultimately use the full LAD complete-grid OD matrix, including the adjustment
   vignette. v07 and v09 now follow that standard; v06 is a temporary exception
   while collaborator revisions are in progress.
-- The validation vignette now reports the existing stored full-LAD Bayesian
-  `coverage_offset` outputs alongside deterministic methods. These are
-  coverage-offset specifications only; full-LAD `reduced_form` outputs,
-  valid repeated-source/time `latent_two_level` outputs, and additional
-  Bayesian candidate specifications remain a later output-generation task.
+- The v07 Bayesian validation output set now includes six full-LAD
+  `coverage_offset` specifications and one full-LAD `reduced_form` sensitivity
+  specification. v07 keeps the true-flow `coverage_offset` rows in the main
+  comparison and reports `reduced_form` separately because it is an MPD-scale
+  counterfactual. A dedicated observed-row S3 latent-generation script has been
+  added and smoke-tested on repeated Mapp1/Mapp2 LAD/LTLA rows; the full
+  15,772-state latent confirmatory run remains a long manual job and is not yet
+  stored in package extdata.
 - The Level 5 validation section now includes a reproducible Local Moran/LISA
   workflow for the full LAD support. Local Moran diagnostics use deterministic
   nearest-neighbour links from real LAD centroid distances, and the LISA map
