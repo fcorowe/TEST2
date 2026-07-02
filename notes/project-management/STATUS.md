@@ -71,18 +71,19 @@ Last updated: 2026-07-02
 
 - The validation vignette now uses the full overlapping LAD support from
   `debiasRdata` for live validation examples rather than a 25-area teaching
-  subset. The current LAD example contains 313 LADs and 97,969 OD rows, and
-  keeps the live validation render focused on deterministic methods that can be
-  fitted quickly on the full support. Full-LAD Bayesian fitting remains in the
-  advanced Bayesian vignette because routine renders should not refit MCMC.
+  subset. The current LAD example contains 313 LADs and 97,969 OD rows. The
+  live render fits deterministic methods and loads revised cached full-LAD
+  Bayesian coverage-offset outputs, so Bayesian results now appear across the
+  validation levels without refitting MCMC during routine vignette builds.
 - The Level 5 validation section now includes a reproducible Local Moran/LISA
   workflow for the full LAD support. Local Moran diagnostics use deterministic
   nearest-neighbour links from real LAD centroid distances, and the LISA map
   renders from a cached public ONS 2021 LAD BFC boundary download or a
-  user-supplied `sf` LAD boundary file. Boundary polygons outside the validation
-  support are retained in the same grey as not-significant areas, Scottish
-  background polygons are omitted, and the map does not depend on a private
-  `/Volumes/DEBIAS` mount.
+  user-supplied `sf` LAD boundary file. `sf` is now an imported dependency so
+  package and site installs include the mapping backend. Boundary polygons
+  outside the validation support are retained in the same grey as
+  not-significant areas, Scottish background polygons are omitted, and the map
+  does not depend on a private `/Volumes/DEBIAS` mount.
 - External HTW flow outputs under `/Volumes/DEBIAS/data/outputs/flows` now
   provide empirical source/time inputs for S1-S4 validation: Mapp1 weekly/monthly
   files, Mapp2 monthly files, and Census travel-to-work benchmarks at LAD/LTLA

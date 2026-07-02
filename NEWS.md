@@ -14,10 +14,14 @@
 
 - Reworked the validation vignette around the full real LAD
   origin-destination support from `debiasRdata`, using live deterministic
-  adjustment examples, row-audit checks, and exported `validate_flow_*()` /
-  `plot_validation_*()` workflows across the five validation levels. Full-LAD
-  Bayesian fitting remains in the advanced Bayesian vignette rather than the
-  live validation render because routine vignette builds should not refit MCMC.
+  adjustment examples, cached full-LAD Bayesian coverage-offset outputs,
+  row-audit checks, and exported `validate_flow_*()` / `plot_validation_*()`
+  workflows across the five validation levels. Full-LAD Bayesian fitting
+  remains outside the live validation render because routine vignette builds
+  should not refit MCMC.
+- Added revised full-LAD Bayesian validation artifacts for four
+  coverage-offset specifications: gravity baseline, gravity plus rural share,
+  gravity plus rural and education covariates, and origin pooling.
 - Streamlined validation vignette tables so the broader method comparison is
   compact, the level-by-level walkthrough prints only the most relevant rows
   and columns, and the first two tables use smaller text for readability.
@@ -53,6 +57,11 @@
   relying on a private mounted disk. Boundary polygons outside the validation
   support are retained in the same grey as not-significant areas rather than
   dropped, while Scottish background polygons are omitted from the vignette map.
+- Moved `sf` to package imports so the LISA map path is installed with
+  `debiasR` rather than only suggested for optional local use.
+- Added `normalize_jsd` to the distributional validation plotting helpers so
+  Jensen-Shannon divergence can be displayed on a 0-1 scale; the validation
+  vignette now uses the normalized bar comparison as the main Level 4 figure.
 
 ### Bayesian adjustment documentation
 

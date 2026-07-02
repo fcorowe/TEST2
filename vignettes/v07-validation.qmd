@@ -64,11 +64,14 @@ LAD means local authority district, a local government geography used in the
 example data.
 
 The example compares deterministic adjustment methods that can be fitted live
-on the full LAD matrix during vignette rendering. These include simple coverage
-weighting, benchmark-assisted calibration and benchmark-cell calibration. Some
-methods use benchmark totals or benchmark OD cells during fitting, so the
-validation result should be read alongside the fitting inputs table rather than
-as a single winner-takes-all ranking.
+on the full LAD matrix during vignette rendering, plus cached Bayesian
+coverage-offset outputs fitted on the same full LAD support. The deterministic
+methods include simple coverage weighting, benchmark-assisted calibration and
+benchmark-cell calibration. The Bayesian models do not use benchmark OD cells
+when they are fitted; they use raw MPD flows, coverage rates, distance and area
+covariates, then reserve the benchmark OD table for validation. This difference
+is important, so the validation result should be read alongside the fitting
+inputs table rather than as a single winner-takes-all ranking.
 
 ## Intuition
 
@@ -127,7 +130,7 @@ same sign convention is used in the residual tables below.[^validation-measure-r
 | Mean absolute percentage error | Average absolute error as a percentage of the benchmark flow. | $\frac{100}{n}\sum_{ij}\lvert \frac{e_{ij}}{F^{bench}_{ij}} \rvert$ |
 | Pearson's r | Linear correlation; shows whether large benchmark flows also tend to be large adjusted flows. | $\mathrm{cor}(F^{adj}_{ij}, F^{bench}_{ij})$ |
 | Spearman's rho | Rank correlation; shows whether the ordering of flows is similar. | $\mathrm{cor}(\mathrm{rank}(F^{adj}_{ij}), \mathrm{rank}(F^{bench}_{ij}))$ |
-| Jensen-Shannon divergence | Level 4 metric. Symmetric difference between origin-conditioned destination-share distributions. Lower values mean closer allocation. | $\frac{1}{2} KL(p^{ref}\mid\mid m) + \frac{1}{2} KL(p^{comp}\mid\mid m)$ |
+| Jensen-Shannon divergence | Level 4 metric. Symmetric difference between origin-conditioned destination-share distributions. The Level 4 figure normalizes it to a 0-1 scale. | $\frac{1}{2} KL(p^{ref}\mid\mid m) + \frac{1}{2} KL(p^{comp}\mid\mid m)$ |
 | Moran's I | Level 5 diagnostic. Spatial autocorrelation in area-level residuals using neighbour links $w_{ik}$. Positive values suggest neighbouring areas have similar residuals. | $\frac{n}{W}\frac{\sum_i\sum_k w_{ik}(\bar e_i-\bar e)(\bar e_k-\bar e)}{\sum_i(\bar e_i-\bar e)^2}$ |
 :::
 
@@ -199,8 +202,8 @@ outputs on the same benchmark OD table and the same OD rows.
 validation_display_method_inputs()
 ```
 
-The comparison uses deterministic adjustment methods that can be fitted during
-the live vignette render. Each output uses the full LAD support prepared above.
+The deterministic methods below are fitted during the live vignette render.
+Each output uses the full LAD support prepared above.
 
 ```{r build-method-results}
 deterministic_results <- list(
@@ -238,20 +241,40 @@ deterministic_results <- list(
     level = "od"
   )
 )
-
-all_method_results <- deterministic_results |>
+deterministic_method_results <- deterministic_results |>
   validation_standardize_adjusted_outputs(mpd_df = mpd_od)
+```
 
+The Bayesian models are loaded from precomputed full-LAD output files. They are
+not refitted during vignette rendering because posterior sampling is much
+slower than the deterministic adjustments. The cache is still checked against
+the validation rows before any metrics are reported.
+
+```{r load-bayesian-results, echo=FALSE}
+bayesian_metadata <- validation_load_v07_bayesian_metadata()
+bayesian_results <- validation_load_v07_bayesian_outputs() |>
+  validation_standardize_adjusted_outputs(mpd_df = mpd_od)
+bayesian_row_audit <- validation_assert_bayesian_support(
+  metadata = bayesian_metadata,
+  adjusted_outputs = bayesian_results,
+  mpd_df = mpd_od,
+  benchmark_df = benchmark_od
+)
+
+all_method_results <- c(deterministic_method_results, bayesian_results)
 method_results <- all_method_results[validation_teaching_methods]
 broad_method_results <- all_method_results[validation_broad_methods]
 ```
 
-The advanced Bayesian vignette covers Bayesian coverage-offset models. Those
-models are not fitted here because full-LAD Bayesian runs are heavier than the
-deterministic examples used in this live validation vignette. When full-LAD
-Bayesian output files are regenerated for the same `r example_data$metadata$n_areas`
-LAD support, they can be added back to this comparison without changing the
-validation levels below.
+The Bayesian specifications are deliberately incremental. The first model is a
+simple gravity-style model with population and distance. The next models add
+rural share and educational composition. The final teaching model adds origin
+pooling, which allows origins to have their own baseline tendency after the
+shared covariates have been taken into account.
+
+```{r bayesian-specifications, echo=FALSE}
+validation_display_bayesian_specs(bayesian_metadata)
+```
 
 Before validating, we check that every method output uses the same OD pairs and
 the same raw MPD flow column. This is the main comparability check in the
@@ -282,13 +305,16 @@ because percentage errors cannot use zero benchmark flows as denominators.
 ## Broader method comparison
 
 Before moving through the five validation levels, it is useful to look at a
-compact broader comparison. This table includes the unadjusted MPD baseline
-and five deterministic adjustment methods. It uses only the
+compact broader comparison. This table includes the unadjusted MPD baseline,
+five deterministic adjustment methods and four Bayesian coverage-offset
+specifications. It uses only the
 adjusted-versus-benchmark comparison, because that is the main question: how
 close is each final output to the benchmark OD table?
 
 The column called "Benchmark used to fit" is important. Some deterministic
-methods use benchmark totals or benchmark OD cells during calibration.
+methods use benchmark totals or benchmark OD cells during calibration. The
+Bayesian rows do not; their benchmark metrics are therefore external validation
+checks rather than direct calibration targets.
 
 ```{r broad-method-comparison, echo=FALSE}
 broad_overall_results <- validation_overall_results(
@@ -317,9 +343,9 @@ plot_validation_metrics(
 This broader table is deliberately compact. It is meant to show the range of
 available choices without making every later section too crowded. The rest of
 the vignette keeps a focused teaching set: Inverse penetration, Selection rate
-II, Raking ratio and Coefficient adjustment. The advanced Bayesian vignette
-explains the Bayesian model variants, parameters and returned columns in more
-detail.
+II, Raking ratio, Coefficient adjustment, Bayesian gravity plus education and
+Bayesian origin pooling. The plots use an even smaller visual subset where that
+keeps the comparison readable.
 
 ## Level 1: Overall validation metrics
 
@@ -390,8 +416,10 @@ pattern of flows.
 
 Level 2 compares geographical area totals. An **origin marginal** adds together
 all flows leaving each origin. A **destination marginal** adds together all
-flows arriving in each destination. This section focuses on four readable
-examples from the comparison set.
+flows arriving in each destination. The printed tables use the focused
+teaching set. The scatterplots use four representative methods: one simple
+coverage-weighting method, one benchmark-margin calibration method and two
+Bayesian coverage-offset specifications.
 
 This level is useful because an adjustment can look reasonable overall while
 still overestimating or underestimating the flows of particular areas.
@@ -411,7 +439,7 @@ origin_margin_metrics <- validation_overall_results(
 
 validation_display_compact_overall_metrics(
   origin_margin_metrics,
-  methods = validation_plot_methods
+  methods = validation_teaching_methods
 )
 ```
 
@@ -430,7 +458,7 @@ destination_margin_metrics <- validation_overall_results(
 
 validation_display_compact_overall_metrics(
   destination_margin_metrics,
-  methods = validation_plot_methods
+  methods = validation_teaching_methods
 )
 ```
 
@@ -497,8 +525,9 @@ same weight on the two margins.
 
 Level 3 compares individual origin-destination pairs. This is the most granular
 validation level and is the best place to inspect large local errors. This
-section uses the same four-method subset as the plots so the summary, scatter
-and outlier review line up.
+section keeps the Bayesian gravity plus education and Bayesian origin-pooling
+outputs in the same assessment as the deterministic methods, then uses a
+smaller visual subset for the scatterplot so individual panels remain readable.
 
 ```{r level3-residual-summary, echo=FALSE}
 flow_residuals <- validation_residual_results(
@@ -509,7 +538,7 @@ flow_residuals <- validation_residual_results(
 
 validation_display_residual_summary(
   flow_residuals,
-  methods = validation_plot_methods
+  methods = validation_teaching_methods
 )
 ```
 
@@ -600,31 +629,20 @@ distribution_results <- validation_distribution_results(
 validation_display_distribution_summary(
   distribution_results,
   comparison = "adjusted_vs_benchmark",
-  methods = validation_plot_methods
+  methods = validation_teaching_methods,
+  normalize_jsd = TRUE
 )
 ```
 
-The plot below focuses on weighted Jensen-Shannon divergence. Lower values mean
-the destination-share distribution is closer to the reference distribution.
-The weighted version gives more influence to origins with larger benchmark
-outflows.
+The plot below focuses on benchmark-weighted Jensen-Shannon divergence. In its
+standard form, this metric ranges from 0 to $\log(2)$ when natural logarithms
+are used. To make the scale easier to read, the figure divides the values by
+$\log(2)$, so the displayed scale runs from 0 to 1. A value closer to 0 means
+the method sends each origin's flows to destinations in proportions that look
+more like the benchmark. The weighted version gives more influence to origins
+with larger benchmark outflows.
 
-```{r level4-distribution-plot}
-plot_validation_distribution(
-  distribution_results,
-  metric = "jsd",
-  value = "weighted_mean",
-  comparisons = validation_benchmark_comparisons,
-  methods = validation_plot_methods,
-  method_labels = validation_plot_method_labels
-)
-```
-
-The comparison plot below shows the same idea from another angle: which pairs
-of flow distributions are closest after converting flows into
-origin-conditioned destination shares.
-
-```{r level4-distribution-pairwise, fig.width=9, fig.height=6}
+```{r level4-distribution-plot, fig.width=9, fig.height=6}
 plot_validation_distribution_pairwise(
   distribution_results,
   metric = "jsd",
@@ -633,7 +651,8 @@ plot_validation_distribution_pairwise(
   methods = validation_plot_methods,
   method_labels = validation_plot_method_labels,
   plot_type = "comparison",
-  sort = "ascending"
+  sort = "ascending",
+  normalize_jsd = TRUE
 )
 ```
 
@@ -648,12 +667,18 @@ level4_best <- distribution_summary_tbl |>
   dplyr::slice_min(jsd_weighted_mean, n = 1, with_ties = FALSE) |>
   dplyr::pull(method) |>
   validation_method_label()
+level4_best_value <- distribution_summary_tbl |>
+  dplyr::filter(comparison == "adjusted_vs_benchmark") |>
+  dplyr::slice_min(jsd_weighted_mean, n = 1, with_ties = FALSE) |>
+  dplyr::pull(jsd_weighted_mean)
+level4_best_value <- validation_fmt_num(level4_best_value / log(2), 3)
 ```
 
 In this example, `r level4_best` has the lowest benchmark-weighted
-Jensen-Shannon divergence in the adjusted-versus-benchmark comparison. This is
-not the same as having the lowest OD-flow error. It means the method is closest
-to the benchmark in terms of the destination shares sent from each origin.
+normalized Jensen-Shannon divergence in the adjusted-versus-benchmark
+comparison (`r level4_best_value` on the 0-1 scale). This is not the same as
+having the lowest OD-flow error. It means the method is closest to the
+benchmark in terms of the destination shares sent from each origin.
 
 ## Level 5: Spatial and residual-structure diagnostics
 
@@ -667,10 +692,11 @@ across neighbouring areas? Third, are origin-level residuals associated with a
 known area covariate? In this example, the covariate is the percentage of
 residents with Level 4 qualifications or above (`per_level4`).
 
-This section uses the same focused teaching set as the earlier plots. The
-optional Moran's I and LISA diagnostics need a neighbour-link table. The Local
-Moran statistic itself uses a reproducible four-nearest-neighbour table derived
-from the real LAD centroid distances returned by `debiasR_example_data()`.
+This section uses the same visual subset as the earlier plots, including the
+two Bayesian coverage-offset specifications. The optional Moran's I and LISA
+diagnostics need a neighbour-link table. The Local Moran statistic itself uses
+a reproducible four-nearest-neighbour table derived from the real LAD centroid
+distances returned by `debiasR_example_data()`.
 The LISA map uses a cached, simplified ONS 2021 LAD boundary file when `sf` and
 network access are available. Readers can also set `DEBIAS_LAD_BOUNDARY_PATH`
 to a local `sf`-readable boundary file. The diagnostic should be interpreted
@@ -800,10 +826,13 @@ results would mix adjustment performance with data construction differences.
 
 The evidence from this vignette should therefore be read in a balanced way. In
 some applications, a benchmark-assisted deterministic method may have the
-lowest in-sample error, especially when the benchmark is trusted and matches
-the period being estimated. In other applications, model-based approaches may
-be preferable because they can bring in extra information and more flexible
-structures. Those extensions need their own runtime and diagnostic checks.
+lowest error, especially when the benchmark is trusted and matches the period
+being estimated. In other applications, the Bayesian coverage-offset route may
+be preferable because it can estimate true-flow scale without using benchmark
+OD cells in the fit, and because it can bring in extra covariates and pooling
+structures when those are substantively justified. Those gains depend on model
+calibration, runtime and posterior diagnostics, so they should be checked rather
+than assumed.
 
 For adoption, the practical question is not whether one method is always best.
 The question is whether the selected method is close enough to the benchmark

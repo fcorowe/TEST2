@@ -496,18 +496,32 @@
   }
 }
 
-.validation_distribution_axis_label <- function(metric, value) {
+.validation_distribution_axis_label <- function(metric, value, normalize_jsd = FALSE) {
   statistic_label <- c(
     mean = "Mean",
     weighted_mean = "Weighted mean",
     median = "Median"
   )
+  metric_label <- toupper(metric)
+  if (metric == "jsd" && isTRUE(normalize_jsd)) {
+    metric_label <- "normalized JSD (0-1)"
+  }
   paste0(
     statistic_label[[value]],
     " ",
-    toupper(metric),
+    metric_label,
     " (lower = closer allocation)"
   )
+}
+
+.validation_normalize_jsd <- function(values, metric, normalize_jsd) {
+  if (!isTRUE(normalize_jsd)) {
+    return(values)
+  }
+  if (metric != "jsd") {
+    stop("`normalize_jsd = TRUE` can only be used when `metric = \"jsd\"`.", call. = FALSE)
+  }
+  values / log(2)
 }
 
 .validation_check_columns <- function(data, cols, arg = "data") {
@@ -1978,6 +1992,8 @@ plot_validate_flow_residual_heatmap <- function(...) {
 #' @param method_col Column containing the method identifier. Default
 #'   `"method"`.
 #' @param method_labels Optional named character vector used to relabel methods.
+#' @param normalize_jsd Logical. If `TRUE` and `metric = "jsd"`, divide JSD
+#'   values by `log(2)` so the plotted values use a 0-1 scale. Default `FALSE`.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -1987,10 +2003,12 @@ plot_validation_distribution <- function(distribution_results,
                                          comparisons = "adjusted_vs_benchmark",
                                          methods = NULL,
                                          method_col = "method",
-                                         method_labels = NULL) {
+                                         method_labels = NULL,
+                                         normalize_jsd = FALSE) {
   .require_ggplot2()
   metric <- match.arg(metric)
   value <- match.arg(value)
+  normalize_jsd <- isTRUE(normalize_jsd)
   comparisons <- .normalise_flow_comparisons(comparisons)
   summary <- .as_validate_distribution_summary(distribution_results, method_col = method_col)
   value_col <- paste(metric, value, sep = "_")
@@ -2017,7 +2035,7 @@ plot_validation_distribution <- function(distribution_results,
         .flow_comparison_label(.data$comparison),
         .data$comparison
       ),
-      divergence = .data[[value_col]]
+      divergence = .validation_normalize_jsd(.data[[value_col]], metric, normalize_jsd)
     ) |>
     dplyr::mutate(
       method = dplyr::if_else(
@@ -2065,7 +2083,11 @@ plot_validation_distribution <- function(distribution_results,
       size = 3.3,
       na.rm = TRUE
     ) +
-    ggplot2::scale_fill_gradient(low = "#fff7bc", high = "#0000ff", name = toupper(metric)) +
+    ggplot2::scale_fill_gradient(
+      low = "#fff7bc",
+      high = "#0000ff",
+      name = if (metric == "jsd" && normalize_jsd) "Normalized JSD" else toupper(metric)
+    ) +
     ggplot2::labs(x = NULL, y = NULL) +
     .validation_theme(base_size = 11, grid = "none") +
     ggplot2::theme(
@@ -2115,6 +2137,8 @@ plot_validate_flow_distribution_heatmap <- function(...) {
 #'   Default `"none"`.
 #' @param mirror_jsd Logical. If `TRUE`, mirror JSD values to show a symmetric
 #'   matrix. Default `TRUE`.
+#' @param normalize_jsd Logical. If `TRUE` and `metric = "jsd"`, divide JSD
+#'   values by `log(2)` so the plotted values use a 0-1 scale. Default `FALSE`.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -2127,12 +2151,14 @@ plot_validation_distribution_pairwise <- function(distribution_results,
                                                   method_labels = NULL,
                                                   plot_type = c("comparison", "heatmap"),
                                                   sort = c("none", "ascending", "descending"),
-                                                  mirror_jsd = TRUE) {
+                                                  mirror_jsd = TRUE,
+                                                  normalize_jsd = FALSE) {
   .require_ggplot2()
   metric <- match.arg(metric)
   value <- match.arg(value)
   plot_type <- match.arg(plot_type)
   sort <- match.arg(sort)
+  normalize_jsd <- isTRUE(normalize_jsd)
   comparisons <- .normalise_flow_comparisons(comparisons)
   summary <- .as_validate_distribution_summary(distribution_results, method_col = method_col)
   value_col <- paste(metric, value, sep = "_")
@@ -2163,7 +2189,7 @@ plot_validation_distribution_pairwise <- function(distribution_results,
       comparison = .data$comparison,
       reference_distribution = .data$reference_distribution,
       comparison_distribution = .data$comparison_distribution,
-      divergence = .data[[value_col]]
+      divergence = .validation_normalize_jsd(.data[[value_col]], metric, normalize_jsd)
     ) |>
     dplyr::mutate(
       method = dplyr::if_else(
@@ -2258,7 +2284,7 @@ plot_validation_distribution_pairwise <- function(distribution_results,
         ggplot2::scale_fill_manual(values = fill_values, name = "Comparison") +
         ggplot2::labs(
           x = NULL,
-          y = .validation_distribution_axis_label(metric, value)
+          y = .validation_distribution_axis_label(metric, value, normalize_jsd = normalize_jsd)
         ) +
         .validation_theme(base_size = 11, grid = "xy") +
         ggplot2::theme(
@@ -2320,7 +2346,11 @@ plot_validation_distribution_pairwise <- function(distribution_results,
       na.rm = TRUE
     ) +
     ggplot2::facet_wrap(ggplot2::vars(.data$method_label)) +
-    ggplot2::scale_fill_gradient(low = "#fff7bc", high = "#0000ff", name = toupper(metric)) +
+    ggplot2::scale_fill_gradient(
+      low = "#fff7bc",
+      high = "#0000ff",
+      name = if (metric == "jsd" && normalize_jsd) "Normalized JSD" else toupper(metric)
+    ) +
     ggplot2::labs(x = "Comparison distribution", y = "Reference distribution") +
     .validation_theme(base_size = 11, grid = "none") +
     ggplot2::theme(

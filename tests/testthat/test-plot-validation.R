@@ -522,12 +522,31 @@ test_that("distributional validation plots return ggplots", {
     methods = c("method_a", "method_b"),
     sort = "ascending"
   )
+  normalized_pairwise_plot <- plot_validation_distribution_pairwise(
+    fixture$distributions,
+    normalize_jsd = TRUE
+  )
 
   expect_s3_class(summary_plot, "ggplot")
   expect_s3_class(pairwise_plot, "ggplot")
   expect_s3_class(pairwise_heatmap, "ggplot")
   expect_s3_class(all_comparisons_plot, "ggplot")
   expect_s3_class(full_pairwise_plot, "ggplot")
+  expect_s3_class(normalized_pairwise_plot, "ggplot")
+
+  expect_equal(
+    normalized_pairwise_plot$data$divergence,
+    pairwise_plot$data$divergence / log(2),
+    tolerance = 1e-12
+  )
+  expect_error(
+    plot_validation_distribution_pairwise(
+      fixture$distributions,
+      metric = "kl",
+      normalize_jsd = TRUE
+    ),
+    "can only be used"
+  )
   expect_s3_class(sorted_pairwise_plot, "ggplot")
   expect_equal(unique(as.character(summary_plot$data$comparison_label)), "Adjusted vs benchmark")
   expect_equal(

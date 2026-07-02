@@ -49,6 +49,9 @@ The staged track below is intended to be implemented one stage per chat window. 
 - The validation vignette now fits live deterministic validation examples on
   the full overlapping `debiasRdata` LAD support rather than a 25-area subset.
   The current example has 313 LADs and 97,969 OD rows.
+- The validation vignette now loads revised cached full-LAD Bayesian
+  coverage-offset outputs and carries Bayesian results through all five
+  validation levels without refitting MCMC during the live render.
 - Level 5 now uses deterministic nearest-neighbour LAD centroid links for
   Local Moran/LISA diagnostics and renders `plot_validation_lisa_map()` when a
   cached public ONS 2021 LAD BFC boundary download or user-supplied LAD `sf`
@@ -56,8 +59,10 @@ The staged track below is intended to be implemented one stage per chat window. 
   are retained in the same grey as not-significant areas, Scottish background
   polygons are omitted, and the vignette does not rely on the private
   `/Volumes/DEBIAS` boundary mount.
+- `sf` is now an imported dependency so the package and pkgdown site install
+  the mapping backend needed for the LISA map route.
 - Full-LAD Bayesian fitting remains outside the live v07 render because of
-  runtime and is documented in the advanced Bayesian vignette.
+  runtime; the validation vignette uses the cached outputs for comparison.
 
 1. Approve latent two-level Bayesian repeated-source implementation - `complete`
 - Completed on 2026-06-25.

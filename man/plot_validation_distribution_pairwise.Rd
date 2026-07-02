@@ -15,7 +15,8 @@ plot_validation_distribution_pairwise(
   method_labels = NULL,
   plot_type = c("comparison", "heatmap"),
   sort = c("none", "ascending", "descending"),
-  mirror_jsd = TRUE
+  mirror_jsd = TRUE,
+  normalize_jsd = FALSE
 )
 
 plot_validate_flow_distribution_pairwise_heatmap(..., plot_type = "heatmap")
@@ -55,6 +56,10 @@ Default \code{"none"}.}
 
 \item{mirror_jsd}{Logical. If \code{TRUE}, mirror JSD values to show a symmetric
 matrix. Default \code{TRUE}.}
+
+\item{normalize_jsd}{Logical. If \code{TRUE} and \code{metric = "jsd"}, divide JSD
+values by \code{log(2)} so the plotted values use a 0-1 scale. Default
+\code{FALSE}.}
 }
 \value{
 A \code{ggplot} object.

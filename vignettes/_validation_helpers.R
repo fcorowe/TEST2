@@ -49,21 +49,24 @@ validation_deterministic_methods <- c(
 
 validation_plot_methods <- c(
   "inverse_penetration",
-  "selection_rate2",
   "raking_ratio",
-  "coefficient"
+  "bayes_gravity_education",
+  "bayes_origin_pool"
 )
 
 validation_broad_methods <- c(
   "unadjusted",
-  validation_deterministic_methods
+  validation_deterministic_methods,
+  validation_bayesian_methods
 )
 
 validation_teaching_methods <- c(
   "inverse_penetration",
   "selection_rate2",
   "raking_ratio",
-  "coefficient"
+  "coefficient",
+  "bayes_gravity_education",
+  "bayes_origin_pool"
 )
 
 validation_primary_bayesian_method <- "bayes_origin_pool"
@@ -446,6 +449,50 @@ validation_assert_bayesian_fingerprint <- function(metadata,
   invisible(TRUE)
 }
 
+validation_assert_bayesian_support <- function(metadata,
+                                               adjusted_outputs,
+                                               mpd_df,
+                                               benchmark_df) {
+  metadata <- tibble::as_tibble(metadata)
+  n_validation_rows <- unique(metadata$n_validation_rows)
+  if (length(n_validation_rows) != 1L || !identical(as.integer(n_validation_rows), nrow(mpd_df))) {
+    stop(
+      "Bayesian validation metadata do not match the current validation row count. ",
+      "Re-run `scripts/precompute_v07_validation_bayesian_example.R`."
+    )
+  }
+
+  if ("n_areas_loaded" %in% names(metadata)) {
+    n_areas_loaded <- unique(metadata$n_areas_loaded)
+    current_n_areas <- length(unique(as.character(mpd_df$origin)))
+    if (length(n_areas_loaded) != 1L || !identical(as.integer(n_areas_loaded), current_n_areas)) {
+      stop(
+        "Bayesian validation metadata do not match the current LAD count. ",
+        "Re-run `scripts/precompute_v07_validation_bayesian_example.R`."
+      )
+    }
+  }
+
+  if ("area_set" %in% names(metadata)) {
+    expected_areas <- sort(unique(as.character(mpd_df$origin)))
+    metadata_areas <- strsplit(metadata$area_set[[1]], ";", fixed = TRUE)[[1]]
+    if (!setequal(expected_areas, metadata_areas)) {
+      stop(
+        "Bayesian validation metadata do not match the current LAD area set. ",
+        "Re-run `scripts/precompute_v07_validation_bayesian_example.R`."
+      )
+    }
+  }
+
+  audit <- validation_audit_shared_validation_rows(
+    adjusted_outputs = adjusted_outputs,
+    mpd_df = mpd_df,
+    benchmark_df = benchmark_df
+  )
+  validation_assert_row_audit(audit)
+  invisible(audit)
+}
+
 validation_overall_results <- function(adjusted_outputs,
                                        benchmark_df,
                                        comparisons = "all",
@@ -766,7 +813,8 @@ validation_build_marginal_tables <- function(adjusted_outputs,
 validation_display_distribution_summary <- function(distribution_results,
                                                     comparison = "adjusted_vs_benchmark",
                                                     methods = names(distribution_results),
-                                                    include_comparison = FALSE) {
+                                                    include_comparison = FALSE,
+                                                    normalize_jsd = FALSE) {
   dplyr::bind_rows(lapply(names(distribution_results), function(method_id) {
     summary <- tibble::as_tibble(distribution_results[[method_id]]$summary)
     summary$method <- method_id
@@ -786,12 +834,19 @@ validation_display_distribution_summary <- function(distribution_results,
       Method = .data$method_label,
       Comparison = .data$comparison_label,
       `Origins used` = .data$n_origins_used,
-      `Weighted mean JSD` = validation_fmt_num(.data$jsd_weighted_mean, 4)
+      `Weighted mean JSD` = validation_fmt_num(
+        if (isTRUE(normalize_jsd)) .data$jsd_weighted_mean / log(2) else .data$jsd_weighted_mean,
+        4
+      )
     ) -> out
 
   if (!isTRUE(include_comparison)) {
     out <- out |>
       dplyr::select(-Comparison)
+  }
+  if (isTRUE(normalize_jsd)) {
+    out <- out |>
+      dplyr::rename(`Normalized weighted mean JSD` = `Weighted mean JSD`)
   }
 
   validation_kable(out, table_class = "table table-sm validation-table-compact")

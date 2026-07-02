@@ -228,6 +228,7 @@ fit_one_spec <- function(method_id, spec, spec_index) {
     adj_df = fit,
     benchmark_od_df = benchmark_od,
     comparisons = "adjusted_vs_benchmark",
+    drop_zeros = FALSE,
     return_joined = FALSE,
     method_name = method_id
   )

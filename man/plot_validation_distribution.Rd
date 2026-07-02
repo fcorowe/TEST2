@@ -12,7 +12,8 @@ plot_validation_distribution(
   comparisons = "adjusted_vs_benchmark",
   methods = NULL,
   method_col = "method",
-  method_labels = NULL
+  method_labels = NULL,
+  normalize_jsd = FALSE
 )
 
 plot_validate_flow_distribution_heatmap(...)
@@ -38,6 +39,10 @@ labels to include. Default \code{NULL} includes all methods.}
 \code{"method"}.}
 
 \item{method_labels}{Optional named character vector used to relabel methods.}
+
+\item{normalize_jsd}{Logical. If \code{TRUE} and \code{metric = "jsd"}, divide JSD
+values by \code{log(2)} so the plotted values use a 0-1 scale. Default
+\code{FALSE}.}
 }
 \value{
 A \code{ggplot} object.
