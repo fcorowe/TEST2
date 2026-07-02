@@ -238,7 +238,19 @@ The staged track below is intended to be implemented one stage per chat window. 
 
 ## Later
 
-1. Harden the Bayesian path further - `1-2 days`
+1. Move v06 adjustment examples to full LAD after collaborator revision - `2-4h`
+- Project decision recorded on 2026-07-02: public empirical vignette outputs
+  should use the full LAD complete-grid OD matrix, including
+  `vignettes/v06-adjusting-biases.qmd`.
+- Do not edit v06 while the collaborator's revision is in progress.
+- After that revision lands, update the v06 data setup from the 25-LAD teaching
+  subset to the full LAD matrix, update
+  `scripts/precompute_v06_bayesian_example.R`, regenerate the
+  `inst/extdata/v06-bayesian-s1-*` files, and preview the v06 pkgdown article.
+- Keep v07/v09 as the current full-LAD reference for validation and Bayesian
+  empirical outputs until the v06 update is complete.
+
+2. Harden the Bayesian path further - `1-2 days`
 - Validate complete-grid Bayesian prediction on real `debiasRdata` OD inputs.
 - Keep the LAD coverage-offset model variant as the approved default empirical
   path;
@@ -248,7 +260,7 @@ The staged track below is intended to be implemented one stage per chat window. 
   latent-backend workflows.
 - Keep the Bayesian tests in a clear optional CI lane if the scope expands.
 
-2. Prepare a release-ready maintenance pass - `1-2 days`
+3. Prepare a release-ready maintenance pass - `1-2 days`
 - Re-run the full package check after the CI and migration work settle.
 - Review examples and vignettes for remaining dependency friction.
 - Decide whether a tagged pre-release makes sense after stabilization.
@@ -482,8 +494,11 @@ Vignette and teaching-material tasks:
 1. Design LAD-scale examples.
 - Use LAD data for user-facing vignettes because it is easier to render,
   explain, and teach.
-- Keep examples small enough for optional Bayesian dependencies and vignette
-  rendering constraints.
+- Use the full LAD complete-grid OD matrix for empirical vignette outputs. When
+  Bayesian runtime is too heavy for live rendering, regenerate package output
+  files outside the vignette render rather than reducing the LAD support.
+- Temporary exception: do not update v06 from its current 25-LAD teaching
+  example until the collaborator's v06 revision has landed.
 - Implementation update: the adjustment vignette now uses a Bayesian
   coverage-offset S1 example with one source and one time unit, and describes
   the parameter switches for S2-S4. Full LAD-scale teaching examples for each
