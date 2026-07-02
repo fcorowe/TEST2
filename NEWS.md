@@ -18,6 +18,12 @@
   `plot_validation_*()` workflows across the five validation levels. Full-LAD
   Bayesian fitting remains in the advanced Bayesian vignette rather than the
   live validation render because routine vignette builds should not refit MCMC.
+- Added the full-LAD Bayesian `coverage_offset` validation outputs to the
+  validation vignette's method-inputs, row-audit, broad-comparison, and Level 1
+  overall-metric reporting. The article now reports these Bayesian
+  coverage-offset specifications and keeps `reduced_form` and `latent_two_level`
+  validation outputs deferred until their corresponding generated result files
+  exist.
 - Streamlined validation vignette tables so the broader method comparison is
   compact, the level-by-level walkthrough prints only the most relevant rows
   and columns, and the first two tables use smaller text for readability.

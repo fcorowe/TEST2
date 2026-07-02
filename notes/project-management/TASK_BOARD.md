@@ -250,7 +250,34 @@ The staged track below is intended to be implemented one stage per chat window. 
 - Keep v07/v09 as the current full-LAD reference for validation and Bayesian
   empirical outputs until the v06 update is complete.
 
-2. Harden the Bayesian path further - `1-2 days`
+2. Generate and store expanded Bayesian validation outputs for v07 - `1-2 days`
+- Sequence decision recorded on 2026-07-02: the immediate v07 revision should
+  integrate only the existing stored full-LAD `coverage_offset` outputs. Do not
+  block that revision on new MCMC runs.
+- After the coverage-offset integration, generate and store additional Bayesian
+  outputs so v07 can later report a broader Bayesian comparison without rerun
+  delays.
+- Candidate set:
+  - additional `coverage_offset` specifications with different covariates,
+    pooling structures, coverage scales, and feasible count-family choices;
+  - full-LAD `reduced_form` specifications, clearly labelled as MPD-scale
+    counterfactual outputs rather than true-flow estimates;
+  - `latent_two_level` specifications only when real repeated source/time rows
+    support the model. Do not force latent models onto single-source/single-time
+    S1 complete-grid data.
+- Store diagnostics, runtime, row counts, model settings, benchmark-use status,
+  and validation metrics for every candidate. Store full adjusted rows for the
+  selected reporting models; use summary-only candidate records if full-row
+  storage becomes too large.
+- Predefine selection rules before choosing models for display: benchmark MAE
+  and RMSE, Pearson/Spearman correlation, residual/distributional diagnostics,
+  acceptable R-hat and ESS, matching intended row support, and no benchmark
+  leakage in Bayesian fitting.
+- After the new outputs exist, revise v07 again to include the selected
+  `reduced_form`, valid `latent_two_level`, and additional high-performing
+  `coverage_offset` results.
+
+3. Harden the Bayesian path further - `1-2 days`
 - Validate complete-grid Bayesian prediction on real `debiasRdata` OD inputs.
 - Keep the LAD coverage-offset model variant as the approved default empirical
   path;
@@ -260,7 +287,7 @@ The staged track below is intended to be implemented one stage per chat window. 
   latent-backend workflows.
 - Keep the Bayesian tests in a clear optional CI lane if the scope expands.
 
-3. Prepare a release-ready maintenance pass - `1-2 days`
+4. Prepare a release-ready maintenance pass - `1-2 days`
 - Re-run the full package check after the CI and migration work settle.
 - Review examples and vignettes for remaining dependency friction.
 - Decide whether a tagged pre-release makes sense after stabilization.
