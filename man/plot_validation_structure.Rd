@@ -14,7 +14,9 @@ plot_validation_structure(
   palette = NULL,
   near_zero_band = 0.1,
   show_value_labels = TRUE,
-  value_digits = 2
+  value_digits = 2,
+  sort = c("none", "ascending", "descending"),
+  sort_metric = NULL
 )
 
 plot_validate_flow_structure(...)
@@ -46,6 +48,14 @@ values. Default \code{TRUE}.}
 
 \item{value_digits}{Number of decimal places used when
 \code{show_value_labels = TRUE}. Default \code{2}.}
+
+\item{sort}{Method sort order. Use \code{"none"} to keep the supplied method
+order, \code{"ascending"} for smallest-to-largest values, or \code{"descending"} for
+largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+bottom. Default \code{"none"}.}
+
+\item{sort_metric}{Residual-structure metric used when \code{sort} is not
+\code{"none"}. Defaults to the first plotted metric.}
 }
 \value{
 A \code{ggplot} object.

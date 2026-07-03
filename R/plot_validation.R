@@ -473,14 +473,23 @@
                                            position = c("last", "first")) {
   position <- match.arg(position)
   labels <- unique(as.character(labels))
-  non_baseline <- setdiff(labels, .validation_raw_baseline_label)
-  baseline <- intersect(labels, .validation_raw_baseline_label)
+  baseline <- labels[.validation_is_raw_baseline_label(labels)]
+  non_baseline <- setdiff(labels, baseline)
 
   if (position == "first") {
     c(baseline, non_baseline)
   } else {
     c(non_baseline, baseline)
   }
+}
+
+.validation_normalise_label <- function(x) {
+  trimws(gsub("[[:space:]]+", " ", x))
+}
+
+.validation_is_raw_baseline_label <- function(labels) {
+  .validation_normalise_label(labels) ==
+    .validation_normalise_label(.validation_raw_baseline_label)
 }
 
 .validation_method_factor_levels <- function(labels,
@@ -494,6 +503,102 @@
   } else {
     levels
   }
+}
+
+.validation_drop_duplicate_raw_baseline <- function(data,
+                                                    comparison_col = "comparison",
+                                                    method_label_col = "method_label") {
+  if (!all(c(comparison_col, method_label_col) %in% names(data))) {
+    return(data)
+  }
+  raw_rows <- .validation_is_raw_baseline_label(data[[method_label_col]])
+  raw_benchmark_rows <- raw_rows & data[[comparison_col]] == "raw_vs_benchmark"
+  if (!any(raw_benchmark_rows)) {
+    return(data)
+  }
+
+  data[!(raw_rows & data[[comparison_col]] != "raw_vs_benchmark"), , drop = FALSE]
+}
+
+.validation_method_sort_levels <- function(data,
+                                           value_col,
+                                           sort = c("none", "ascending", "descending"),
+                                           axis = c("x", "y"),
+                                           method_label_col = "method_label",
+                                           summary = c("mean", "median")) {
+  sort <- match.arg(sort)
+  axis <- match.arg(axis)
+  summary <- match.arg(summary)
+  if (sort == "none") {
+    return(.validation_method_factor_levels(
+      data[[method_label_col]],
+      axis = axis,
+      raw_position = "last"
+    ))
+  }
+  .validation_check_columns(data, c(method_label_col, value_col), "data")
+
+  method_labels <- unique(as.character(data[[method_label_col]]))
+  baseline_order <- method_labels[
+    .validation_is_raw_baseline_label(method_labels)
+  ]
+  order_data <- data |>
+    dplyr::mutate(
+      .method_sort_label = as.character(.data[[method_label_col]]),
+      .method_sort_value = as.numeric(.data[[value_col]])
+    ) |>
+    dplyr::filter(!.validation_is_raw_baseline_label(.data$.method_sort_label)) |>
+    dplyr::group_by(.data$.method_sort_label) |>
+    dplyr::summarise(
+      .sort_value = if (summary == "median") {
+        stats::median(.data$.method_sort_value, na.rm = TRUE)
+      } else {
+        mean(.data$.method_sort_value, na.rm = TRUE)
+      },
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(.sort_missing = !is.finite(.data$.sort_value))
+
+  if (sort == "ascending") {
+    order_data <- order_data |>
+      dplyr::arrange(.data$.sort_missing, .data$.sort_value, .data$.method_sort_label)
+  } else {
+    order_data <- order_data |>
+      dplyr::arrange(.data$.sort_missing, dplyr::desc(.data$.sort_value), .data$.method_sort_label)
+  }
+
+  levels <- c(order_data$.method_sort_label, baseline_order)
+  if (axis == "y") {
+    rev(levels)
+  } else {
+    levels
+  }
+}
+
+.validation_resolve_sort_metric <- function(sort_metric,
+                                            available,
+                                            aliases = NULL,
+                                            arg = "sort_metric") {
+  if (is.null(sort_metric)) {
+    return(available[[1]])
+  }
+  if (!is.character(sort_metric) || length(sort_metric) != 1L) {
+    stop("`", arg, "` must be a single character value.", call. = FALSE)
+  }
+  if (!is.null(aliases)) {
+    sort_metric <- dplyr::coalesce(
+      unname(aliases[sort_metric]),
+      sort_metric
+    )
+  }
+  if (!sort_metric %in% available) {
+    stop(
+      "`", arg, "` must be one of: ",
+      paste(available, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  sort_metric
 }
 
 .validation_distribution_axis_label <- function(metric, value) {
@@ -868,7 +973,8 @@
 
   out <- dplyr::bind_rows(lapply(comparisons, function(comparison) {
     builders[[comparison]](residual_data)
-  }))
+  })) |>
+    .validation_drop_duplicate_raw_baseline()
 
   value_col <- switch(
     residual,
@@ -919,6 +1025,12 @@
 #' @param relative_error_breaks Numeric percentage cut points used to bin the
 #'   within-metric relative-error fill scale. Default `seq(0, 100, by = 10)`
 #'   produces legend ranges such as 0-10, 11-20, and 91-100.
+#' @param sort Method sort order. Use `"none"` to keep the supplied method
+#'   order, `"ascending"` for smallest-to-largest values, or `"descending"` for
+#'   largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+#'   bottom of the matrix. Default `"none"`.
+#' @param sort_metric Metric used when `sort` is not `"none"`. Defaults to the
+#'   first plotted metric.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -931,9 +1043,12 @@ plot_validation_metrics <- function(metrics,
                                     method_family_col = NULL,
                                     method_labels = NULL,
                                     palette = NULL,
-                                    relative_error_breaks = seq(0, 100, by = 10)) {
+                                    relative_error_breaks = seq(0, 100, by = 10),
+                                    sort = c("none", "ascending", "descending"),
+                                    sort_metric = NULL) {
   .require_ggplot2()
   .validation_check_relative_error_breaks(relative_error_breaks)
+  sort <- match.arg(sort)
   if (!is.null(metric_cols)) {
     if (!missing(error_measures)) {
       stop(
@@ -1012,6 +1127,7 @@ plot_validation_metrics <- function(metrics,
       .data$metric,
       .keep_all = TRUE
     )
+  plot_data <- .validation_drop_duplicate_raw_baseline(plot_data)
   plot_data <- .validation_add_comparison_display(plot_data, comparisons)
 
   plot_data <- dplyr::bind_rows(lapply(metric_cols, function(metric_col) {
@@ -1036,10 +1152,17 @@ plot_validation_metrics <- function(metrics,
   } else {
     palette
   }
-  method_order <- .validation_method_factor_levels(
-    plot_data$method_label,
+  sort_metric <- .validation_resolve_sort_metric(
+    sort_metric,
+    metric_cols,
+    aliases = .validation_error_measure_aliases
+  )
+  method_order <- .validation_method_sort_levels(
+    plot_data[plot_data$metric == sort_metric, , drop = FALSE],
+    value_col = "value",
+    sort = sort,
     axis = "y",
-    raw_position = "last"
+    method_label_col = "method_label"
   )
   metric_order <- unique(plot_data$metric_label)
   plot_data <- plot_data |>
@@ -1196,6 +1319,13 @@ plot_validate_flow_metrics <- function(...) {
 #' @param y_transform Y-axis transformation. `"pseudo_log"` gives a log-like
 #'   display that can still show zero and negative signed residuals. Use
 #'   `"identity"` for the raw residual scale. Default `"pseudo_log"`.
+#' @param sort Method sort order. Use `"none"` to keep the supplied method
+#'   order, `"ascending"` for smallest-to-largest values, or `"descending"` for
+#'   largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+#'   right. Default `"none"`.
+#' @param sort_metric Residual summary used when `sort` is not `"none"`.
+#'   Options are `"median_absolute_residual"`, `"mean_absolute_residual"`, and
+#'   `"mean_residual"`. Default `"median_absolute_residual"`.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -1213,10 +1343,18 @@ plot_validation_residuals <- function(residuals,
                                       jitter_width = 0.12,
                                       violin_alpha = 0.5,
                                       max_points = 5000,
-                                      y_transform = c("pseudo_log", "identity")) {
+                                      y_transform = c("pseudo_log", "identity"),
+                                      sort = c("none", "ascending", "descending"),
+                                      sort_metric = c(
+                                        "median_absolute_residual",
+                                        "mean_absolute_residual",
+                                        "mean_residual"
+                                      )) {
   .require_ggplot2()
   residual <- match.arg(residual)
   y_transform <- match.arg(y_transform)
+  sort <- match.arg(sort)
+  sort_metric <- match.arg(sort_metric)
   residual_data <- .as_validate_residual_data(residuals, method_col = method_col)
   residual_data <- .validation_filter_methods(
     residual_data,
@@ -1234,10 +1372,21 @@ plot_validation_residuals <- function(residuals,
   )
   plot_data <- .validation_add_comparison_display(plot_data, comparisons)
 
-  method_order <- .validation_method_factor_levels(
-    plot_data$method_label,
+  sort_data <- plot_data |>
+    dplyr::mutate(
+      .sort_value = dplyr::case_when(
+        sort_metric == "median_absolute_residual" ~ abs(.data$value),
+        sort_metric == "mean_absolute_residual" ~ abs(.data$value),
+        TRUE ~ .data$value
+      )
+    )
+  method_order <- .validation_method_sort_levels(
+    sort_data,
+    value_col = ".sort_value",
+    sort = sort,
     axis = "x",
-    raw_position = "last"
+    method_label_col = "method_label",
+    summary = if (sort_metric == "median_absolute_residual") "median" else "mean"
   )
   plot_data <- plot_data |>
     dplyr::mutate(method_label = factor(.data$method_label, levels = method_order))
@@ -1382,6 +1531,13 @@ plot_validate_flow_residual_violin <- function(...) {
 #'   Default `"#6B7280"`.
 #' @param point_stroke Outline stroke width used when `point_outline = TRUE`.
 #'   Default `0.12`.
+#' @param sort Method sort order. Use `"none"` to keep the supplied method
+#'   order, `"ascending"` for smallest-to-largest values, or `"descending"` for
+#'   largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+#'   right. Default `"none"`.
+#' @param sort_metric Residual summary used when `sort` is not `"none"`.
+#'   Options are `"median_absolute_residual"`, `"mean_absolute_residual"`, and
+#'   `"mean_residual"`. Default `"median_absolute_residual"`.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -1397,8 +1553,16 @@ plot_validation_scatter <- function(residuals,
                                     point_size = 1.1,
                                     point_outline = TRUE,
                                     point_outline_colour = "#6B7280",
-                                    point_stroke = 0.12) {
+                                    point_stroke = 0.12,
+                                    sort = c("none", "ascending", "descending"),
+                                    sort_metric = c(
+                                      "median_absolute_residual",
+                                      "mean_absolute_residual",
+                                      "mean_residual"
+                                    )) {
   .require_ggplot2()
+  sort <- match.arg(sort)
+  sort_metric <- match.arg(sort_metric)
   residual_data <- .as_validate_residual_data(residuals, method_col = method_col)
   residual_data <- .validation_filter_methods(
     residual_data,
@@ -1450,10 +1614,21 @@ plot_validation_scatter <- function(residuals,
   }
   axis_labels <- .validation_scatter_axis_labels(comparisons)
   difference_label <- .validation_difference_label(comparisons)
-  method_order <- .validation_method_factor_levels(
-    plot_data$method_label,
+  sort_data <- plot_data |>
+    dplyr::mutate(
+      .sort_value = dplyr::case_when(
+        sort_metric == "median_absolute_residual" ~ abs(.data$difference),
+        sort_metric == "mean_absolute_residual" ~ abs(.data$difference),
+        TRUE ~ .data$difference
+      )
+    )
+  method_order <- .validation_method_sort_levels(
+    sort_data,
+    value_col = ".sort_value",
+    sort = sort,
     axis = "x",
-    raw_position = "last"
+    method_label_col = "method_label",
+    summary = if (sort_metric == "median_absolute_residual") "median" else "mean"
   )
   plot_data <- plot_data |>
     dplyr::mutate(
@@ -1620,6 +1795,15 @@ plot_validate_flow_scatter <- function(...) {
 #' @param orientation Bar orientation. `"horizontal"` places methods on the
 #'   y-axis and shares on the x-axis; `"vertical"` keeps methods on the x-axis.
 #'   Default `"horizontal"`.
+#' @param sort Method sort order. Use `"none"` to keep the supplied method
+#'   order, `"ascending"` for smallest-to-largest values, or `"descending"` for
+#'   largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+#'   bottom for horizontal bars and at the right for vertical bars. Default
+#'   `"none"`.
+#' @param sort_metric Residual-band summary used when `sort` is not `"none"`.
+#'   `"severe_share"` sorts by the share in the highest residual band;
+#'   `"mean_band_score"` sorts by the share-weighted residual-band score.
+#'   Default `"severe_share"`.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -1634,13 +1818,17 @@ plot_validation_residual_bands <- function(residuals,
                                            quantile_probs = c(0.5, 0.75, 0.9, 0.95),
                                            palette = NULL,
                                            label_min_share = 8,
-                                           orientation = c("horizontal", "vertical")) {
+                                           orientation = c("horizontal", "vertical"),
+                                           sort = c("none", "ascending", "descending"),
+                                           sort_metric = c("severe_share", "mean_band_score")) {
   .require_ggplot2()
   comparisons <- .normalise_flow_comparisons(comparisons)
   band_method <- match.arg(band_method)
   sd_reference <- match.arg(sd_reference)
   quantile_reference <- match.arg(quantile_reference)
   orientation <- match.arg(orientation)
+  sort <- match.arg(sort)
+  sort_metric <- match.arg(sort_metric)
   residual_data <- .as_validate_residual_data(residuals, method_col = method_col)
   residual_data <- .validation_filter_methods(
     residual_data,
@@ -1787,6 +1975,7 @@ plot_validation_residual_bands <- function(residuals,
 
   residual_reference <- residual_reference |>
     dplyr::filter(is.finite(.data$residual), !is.na(.data$residual_band))
+  residual_reference <- .validation_drop_duplicate_raw_baseline(residual_reference)
   residual_reference <- .validation_add_comparison_display(
     residual_reference,
     comparisons
@@ -1853,10 +2042,22 @@ plot_validation_residual_bands <- function(residuals,
     if (is.null(palette)) .validation_residual_band_palette else palette
   )
 
-  method_order <- .validation_method_factor_levels(
-    plot_data$method_label,
+  sort_data <- plot_data |>
+    dplyr::mutate(
+      .band_score = as.integer(.data$residual_band),
+      .sort_value = if (sort_metric == "severe_share") {
+        dplyr::if_else(.data$.band_score == length(band_levels), .data$share, 0)
+      } else {
+        .data$share * .data$.band_score
+      }
+    )
+  method_order <- .validation_method_sort_levels(
+    sort_data,
+    value_col = ".sort_value",
+    sort = sort,
     axis = if (orientation == "horizontal") "y" else "x",
-    raw_position = "last"
+    method_label_col = "method_label",
+    summary = "mean"
   )
   plot_data <- plot_data |>
     dplyr::mutate(
@@ -1978,6 +2179,10 @@ plot_validate_flow_residual_heatmap <- function(...) {
 #' @param method_col Column containing the method identifier. Default
 #'   `"method"`.
 #' @param method_labels Optional named character vector used to relabel methods.
+#' @param sort Method sort order. Use `"none"` to keep the supplied method
+#'   order, `"ascending"` for smallest-to-largest divergence, or
+#'   `"descending"` for largest-to-smallest divergence. The unadjusted raw MPD
+#'   baseline remains at the bottom. Default `"none"`.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -1987,10 +2192,12 @@ plot_validation_distribution <- function(distribution_results,
                                          comparisons = "adjusted_vs_benchmark",
                                          methods = NULL,
                                          method_col = "method",
-                                         method_labels = NULL) {
+                                         method_labels = NULL,
+                                         sort = c("none", "ascending", "descending")) {
   .require_ggplot2()
   metric <- match.arg(metric)
   value <- match.arg(value)
+  sort <- match.arg(sort)
   comparisons <- .normalise_flow_comparisons(comparisons)
   summary <- .as_validate_distribution_summary(distribution_results, method_col = method_col)
   value_col <- paste(metric, value, sep = "_")
@@ -2036,12 +2243,15 @@ plot_validation_distribution <- function(distribution_results,
       .data$method_label,
       .keep_all = TRUE
     )
+  plot_data <- .validation_drop_duplicate_raw_baseline(plot_data)
   plot_data <- .validation_add_comparison_display(plot_data, comparisons)
 
-  method_order <- .validation_method_factor_levels(
-    plot_data$method_label,
+  method_order <- .validation_method_sort_levels(
+    plot_data,
+    value_col = "divergence",
+    sort = sort,
     axis = "y",
-    raw_position = "last"
+    method_label_col = "method_label"
   )
   plot_data <- plot_data |>
     dplyr::mutate(
@@ -2108,11 +2318,11 @@ plot_validate_flow_distribution_heatmap <- function(...) {
 #' @param method_labels Optional named character vector used to relabel methods.
 #' @param plot_type Plot type to return: `"comparison"` for a horizontal
 #'   benchmark-comparison chart or `"heatmap"` for the full pairwise matrix.
-#' @param sort Sort order for the comparison chart. Use `"none"` to keep method
-#'   order, `"ascending"` for smallest-to-largest divergence, or
-#'   `"descending"` for largest-to-smallest divergence. Adjusted methods are
-#'   sorted; the raw MPD baseline remains at the edge as a reference row.
-#'   Default `"none"`.
+#' @param sort Method sort order. Use `"none"` to keep method order,
+#'   `"ascending"` for smallest-to-largest divergence, or `"descending"` for
+#'   largest-to-smallest divergence. Adjusted methods are sorted in comparison
+#'   charts and heatmap facets; the raw MPD baseline remains at the edge as a
+#'   reference row or facet. Default `"none"`.
 #' @param mirror_jsd Logical. If `TRUE`, mirror JSD values to show a symmetric
 #'   matrix. Default `TRUE`.
 #'
@@ -2184,6 +2394,7 @@ plot_validation_distribution_pairwise <- function(distribution_results,
       .data$comparison_distribution,
       .keep_all = TRUE
     )
+  plot_data <- .validation_drop_duplicate_raw_baseline(plot_data)
   plot_data <- .validation_add_comparison_display(plot_data, comparisons)
 
   if (plot_type == "comparison") {
@@ -2195,27 +2406,13 @@ plot_validation_distribution_pairwise <- function(distribution_results,
         ),
         divergence_label = sprintf("%.3f", .data$divergence)
       )
-    if (sort == "none") {
-      method_order <- .validation_method_factor_levels(
-        plot_data$method_label,
-        axis = "y",
-        raw_position = "last"
-      )
-    } else {
-      baseline_label <- .validation_raw_baseline_label
-      baseline_order <- intersect(
-        unique(as.character(plot_data$method_label)),
-        baseline_label
-      )
-      method_order <- plot_data |>
-        dplyr::filter(.data$method_label != baseline_label) |>
-        dplyr::group_by(.data$method_label) |>
-        dplyr::summarise(.sort_value = mean(.data$divergence, na.rm = TRUE), .groups = "drop") |>
-        dplyr::arrange(if (sort == "ascending") .data$.sort_value else dplyr::desc(.data$.sort_value)) |>
-        dplyr::pull("method_label") |>
-        as.character()
-      method_order <- rev(c(method_order, baseline_order))
-    }
+    method_order <- .validation_method_sort_levels(
+      plot_data,
+      value_col = "divergence",
+      sort = sort,
+      axis = "y",
+      method_label_col = "method_label"
+    )
     comparison_order <- unique(as.character(plot_data$comparison_label))
     plot_data <- plot_data |>
       dplyr::mutate(
@@ -2270,6 +2467,14 @@ plot_validation_distribution_pairwise <- function(distribution_results,
     )
   }
 
+  method_order <- .validation_method_sort_levels(
+    plot_data,
+    value_col = "divergence",
+    sort = sort,
+    axis = "x",
+    method_label_col = "method_label"
+  )
+
   if (metric == "jsd" && isTRUE(mirror_jsd)) {
     plot_data <- dplyr::bind_rows(
       plot_data,
@@ -2306,7 +2511,8 @@ plot_validation_distribution_pairwise <- function(distribution_results,
       comparison_label = dplyr::coalesce(
         unname(.validation_distribution_labels[.data$comparison_distribution]),
         .data$comparison_distribution
-      )
+      ),
+      method_label = factor(.data$method_label, levels = method_order)
     )
 
   ggplot2::ggplot(
@@ -2363,6 +2569,12 @@ plot_validate_flow_distribution_pairwise_heatmap <- function(...,
 #'   values. Default `TRUE`.
 #' @param value_digits Number of decimal places used when
 #'   `show_value_labels = TRUE`. Default `2`.
+#' @param sort Method sort order. Use `"none"` to keep the supplied method
+#'   order, `"ascending"` for smallest-to-largest values, or `"descending"` for
+#'   largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+#'   bottom. Default `"none"`.
+#' @param sort_metric Residual-structure metric used when `sort` is not
+#'   `"none"`. Defaults to the first plotted metric.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -2374,9 +2586,12 @@ plot_validation_structure <- function(structure_results,
                                       palette = NULL,
                                       near_zero_band = 0.1,
                                       show_value_labels = TRUE,
-                                      value_digits = 2) {
+                                      value_digits = 2,
+                                      sort = c("none", "ascending", "descending"),
+                                      sort_metric = NULL) {
   .require_ggplot2()
   comparisons <- .normalise_flow_comparisons(comparisons)
+  sort <- match.arg(sort)
   if (
     !is.null(near_zero_band) &&
       (!is.numeric(near_zero_band) ||
@@ -2453,12 +2668,37 @@ plot_validation_structure <- function(structure_results,
       metric_label = unname(metric_labels[metric_col]),
       value = as.numeric(summary[[metric_col]])
     )
-  }))
+  })) |>
+    dplyr::mutate(
+      method = dplyr::if_else(
+        .data$comparison == "raw_vs_benchmark",
+        .validation_raw_baseline_id,
+        as.character(.data$method)
+      ),
+      method_label = dplyr::if_else(
+        .data$comparison == "raw_vs_benchmark",
+        .validation_raw_baseline_label,
+        as.character(.data$method_label)
+      )
+    ) |>
+    dplyr::distinct(
+      .data$comparison,
+      .data$method_label,
+      .data$metric,
+      .keep_all = TRUE
+    ) |>
+    .validation_drop_duplicate_raw_baseline()
 
-  method_order <- .validation_method_factor_levels(
-    plot_data$method_label,
+  sort_metric <- .validation_resolve_sort_metric(
+    sort_metric,
+    metric_cols
+  )
+  method_order <- .validation_method_sort_levels(
+    plot_data[plot_data$metric == sort_metric, , drop = FALSE],
+    value_col = "value",
+    sort = sort,
     axis = "y",
-    raw_position = "last"
+    method_label_col = "method_label"
   )
   plot_data <- plot_data |>
     dplyr::mutate(
@@ -2703,6 +2943,15 @@ plot_validate_flow_structure <- function(...) {
 #'   administrative boundaries to draw over the mapped areas.
 #' @param outline_colour Larger-boundary outline colour. Default `"white"`.
 #' @param outline_linewidth Larger-boundary outline width. Default `0.45`.
+#' @param sort Method sort order. Use `"none"` to keep the supplied method
+#'   order, `"ascending"` for smallest-to-largest values, or `"descending"` for
+#'   largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+#'   final facet. Default `"none"`.
+#' @param sort_metric LISA-map summary used when `sort` is not `"none"`.
+#'   `"significant_area_share"` sorts by the share of mapped areas in a
+#'   significant LISA class, `"mean_abs_local_moran"` by the mean absolute Local
+#'   Moran statistic, and `"mean_local_moran"` by the mean Local Moran
+#'   statistic. Default `"significant_area_share"`.
 #'
 #' @return A `ggplot` object.
 #' @export
@@ -2723,9 +2972,17 @@ plot_validation_lisa_map <- function(structure_results,
                                      boundary_linewidth = 0,
                                      outline_boundaries = NULL,
                                      outline_colour = "white",
-                                     outline_linewidth = 0.45) {
+                                     outline_linewidth = 0.45,
+                                     sort = c("none", "ascending", "descending"),
+                                     sort_metric = c(
+                                       "significant_area_share",
+                                       "mean_abs_local_moran",
+                                       "mean_local_moran"
+                                     )) {
   .require_ggplot2()
   comparisons <- .normalise_flow_comparisons(comparisons)
+  sort <- match.arg(sort)
+  sort_metric <- match.arg(sort_metric)
   map_data <- .as_validate_structure_map_data(
     structure_results,
     method_col = method_col
@@ -2791,10 +3048,23 @@ plot_validation_lisa_map <- function(structure_results,
 
   map_data <- map_data |>
     dplyr::mutate(
+      method = dplyr::if_else(
+        .data$comparison == "raw_vs_benchmark",
+        .validation_raw_baseline_id,
+        as.character(.data[[method_col]])
+      ),
       method_label = .validation_method_label(map_data, method_col, method_labels),
       comparison_label = .flow_comparison_label(.data$comparison),
       .lisa_cluster_raw = as.character(.data[[cluster_col]])
+    ) |>
+    dplyr::mutate(
+      method_label = dplyr::if_else(
+        .data$comparison == "raw_vs_benchmark",
+        .validation_raw_baseline_label,
+        as.character(.data$method_label)
+      )
     )
+  map_data <- .validation_drop_duplicate_raw_baseline(map_data)
 
   if (is.null(p_value_threshold)) {
     map_data <- map_data |>
@@ -2817,7 +3087,7 @@ plot_validation_lisa_map <- function(structure_results,
   map_join_data <- map_data |>
     dplyr::select(dplyr::any_of(c(
       area_col,
-      method_col,
+      "method",
       "method_label",
       "comparison",
       "comparison_label",
@@ -2879,11 +3149,34 @@ plot_validation_lisa_map <- function(structure_results,
     }
   }
   boundary_bbox <- sf::st_bbox(boundaries)
+  if (!"local_moran_i" %in% names(plot_data)) {
+    plot_data$local_moran_i <- NA_real_
+  }
+
+  plot_data <- plot_data |>
+    dplyr::mutate(
+      .method_sort_value = dplyr::case_when(
+        sort_metric == "mean_abs_local_moran" ~ abs(.data$local_moran_i),
+        sort_metric == "mean_local_moran" ~ .data$local_moran_i,
+        TRUE ~ dplyr::if_else(
+          !.data$.lisa_cluster %in% c("not significant", "no neighbours", "undefined"),
+          1,
+          0
+        )
+      )
+    )
+  method_order <- .validation_method_sort_levels(
+    plot_data,
+    value_col = ".method_sort_value",
+    sort = sort,
+    axis = "x",
+    method_label_col = "method_label"
+  )
 
   plot_data <- plot_data |>
     dplyr::mutate(
       .lisa_cluster = factor(.data$.lisa_cluster, levels = cluster_order),
-      method_label = factor(.data$method_label, levels = unique(.data$method_label)),
+      method_label = factor(.data$method_label, levels = method_order),
       comparison_label = factor(
         .data$comparison_label,
         levels = .flow_comparison_label(comparisons)

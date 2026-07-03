@@ -18,7 +18,9 @@ plot_validation_scatter(
   point_size = 1.1,
   point_outline = TRUE,
   point_outline_colour = "#6B7280",
-  point_stroke = 0.12
+  point_stroke = 0.12,
+  sort = c("none", "ascending", "descending"),
+  sort_metric = c("median_absolute_residual", "mean_absolute_residual", "mean_residual")
 )
 
 plot_validate_flow_scatter(...)
@@ -64,6 +66,15 @@ Default \code{"#6B7280"}.}
 
 \item{point_stroke}{Outline stroke width used when \code{point_outline = TRUE}.
 Default \code{0.12}.}
+
+\item{sort}{Method sort order. Use \code{"none"} to keep the supplied method
+order, \code{"ascending"} for smallest-to-largest values, or \code{"descending"} for
+largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+right. Default \code{"none"}.}
+
+\item{sort_metric}{Residual summary used when \code{sort} is not \code{"none"}.
+Options are \code{"median_absolute_residual"}, \code{"mean_absolute_residual"}, and
+\code{"mean_residual"}. Default \code{"median_absolute_residual"}.}
 }
 \value{
 A \code{ggplot} object.

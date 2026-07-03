@@ -182,16 +182,13 @@ validation_comparison_label <- function(comparison) {
 }
 
 validation_find_extdata_file <- function(filename) {
-  package_path <- system.file("extdata", filename, package = "debiasR")
-  if (!identical(package_path, "")) {
-    return(package_path)
-  }
-
   candidates <- c(
     file.path("inst", "extdata", filename),
     file.path("..", "inst", "extdata", filename),
-    file.path("..", "..", "inst", "extdata", filename)
+    file.path("..", "..", "inst", "extdata", filename),
+    system.file("extdata", filename, package = "debiasR")
   )
+  candidates <- candidates[nzchar(candidates)]
   candidates <- candidates[file.exists(candidates)]
   if (length(candidates) == 0L) {
     stop(
@@ -216,7 +213,10 @@ validation_load_v07_bayesian_outputs <- function() {
   adjusted <- utils::read.csv(adjusted_file, stringsAsFactors = FALSE)
   adjusted <- tibble::as_tibble(adjusted)
 
-  required <- c("method", "origin", "destination", "flow", "flow_adj")
+  required <- c(
+    "method", "origin", "destination", "flow", "flow_adj",
+    "observation_model", "target_scale"
+  )
   if (!all(required %in% names(adjusted))) {
     stop(
       "`v07-validation-bayesian-adjusted.csv` must contain: ",
@@ -230,6 +230,27 @@ validation_load_v07_bayesian_outputs <- function() {
     setdiff(names(out), validation_bayesian_methods)
   )
   out[ordered_names]
+}
+
+validation_load_v07_bayesian_display <- function() {
+  display_file <- validation_find_extdata_file(
+    "v07-validation-bayesian-display.csv"
+  )
+  display <- utils::read.csv(display_file, stringsAsFactors = FALSE)
+  display <- tibble::as_tibble(display)
+
+  required <- c(
+    "method", "origin", "destination", "flow", "flow_adj",
+    "observation_model", "target_scale"
+  )
+  if (!all(required %in% names(display))) {
+    stop(
+      "`v07-validation-bayesian-display.csv` must contain: ",
+      paste(required, collapse = ", ")
+    )
+  }
+
+  display
 }
 
 validation_load_v07_bayesian_metadata <- function() {
@@ -570,6 +591,78 @@ validation_assert_bayesian_fingerprint <- function(metadata,
   invisible(TRUE)
 }
 
+validation_assert_v07_bayesian_bundle <- function(adjusted_outputs,
+                                                  display,
+                                                  metadata,
+                                                  selection) {
+  expected_methods <- c(
+    validation_bayesian_methods,
+    validation_bayesian_sensitivity_methods
+  )
+  table_methods <- list(
+    adjusted = names(adjusted_outputs),
+    display = unique(display$method),
+    metadata = unique(metadata$method),
+    selection = unique(selection$method)
+  )
+  missing_methods <- lapply(table_methods, function(methods) {
+    setdiff(expected_methods, methods)
+  })
+  missing_methods <- missing_methods[lengths(missing_methods) > 0L]
+  if (length(missing_methods) > 0L) {
+    stop(
+      "The v07 Bayesian precomputed files are missing methods: ",
+      paste(
+        sprintf(
+          "%s (%s)",
+          names(missing_methods),
+          vapply(missing_methods, paste, character(1), collapse = ", ")
+        ),
+        collapse = "; "
+      )
+    )
+  }
+
+  adjusted_specs <- dplyr::bind_rows(lapply(names(adjusted_outputs), function(method) {
+    adjusted_outputs[[method]] |>
+      dplyr::distinct(.data$method, .data$observation_model, .data$target_scale)
+  }))
+
+  spec_sources <- list(
+    adjusted = adjusted_specs,
+    display = display,
+    metadata = metadata,
+    selection = selection
+  )
+  lapply(names(spec_sources), function(source_name) {
+    source <- spec_sources[[source_name]]
+    required <- c("method", "observation_model", "target_scale")
+    if (!all(required %in% names(source))) {
+      stop(
+        "The v07 Bayesian ", source_name, " data must contain: ",
+        paste(required, collapse = ", ")
+      )
+    }
+    primary_specs <- source |>
+      dplyr::filter(.data$method %in% validation_bayesian_methods) |>
+      dplyr::distinct(.data$method, .data$observation_model, .data$target_scale)
+    invalid_primary <- primary_specs |>
+      dplyr::filter(
+        .data$observation_model != "coverage_offset" |
+          .data$target_scale != "true_flow"
+      )
+    if (nrow(invalid_primary) > 0L) {
+      stop(
+        "The main v07 Bayesian comparison must use `coverage_offset` ",
+        "`true_flow` rows. Invalid ", source_name, " methods: ",
+        paste(invalid_primary$method, collapse = ", ")
+      )
+    }
+  })
+
+  invisible(TRUE)
+}
+
 validation_overall_results <- function(adjusted_outputs,
                                        benchmark_df,
                                        comparisons = "all",
@@ -734,11 +827,11 @@ validation_display_compact_overall_metrics <- function(overall_results,
     validation_kable(table_class = "table table-sm validation-table-compact")
 }
 
-validation_best_method <- function(overall_results,
-                                   comparison = "adjusted_vs_benchmark",
-                                   metric = "mae",
-                                   methods = NULL,
-                                   largest = FALSE) {
+validation_best_method_id <- function(overall_results,
+                                      comparison = "adjusted_vs_benchmark",
+                                      metric = "mae",
+                                      methods = NULL,
+                                      largest = FALSE) {
   tbl <- validation_bind_overall_summary(overall_results) |>
     dplyr::filter(.data$comparison == comparison)
   if (!is.null(methods)) {
@@ -749,7 +842,21 @@ validation_best_method <- function(overall_results,
   } else {
     out <- dplyr::slice_min(tbl, .data[[metric]], n = 1, with_ties = FALSE)
   }
-  out$method_label[1]
+  out$method[1]
+}
+
+validation_best_method <- function(overall_results,
+                                   comparison = "adjusted_vs_benchmark",
+                                   metric = "mae",
+                                   methods = NULL,
+                                   largest = FALSE) {
+  validation_method_label(validation_best_method_id(
+    overall_results = overall_results,
+    comparison = comparison,
+    metric = metric,
+    methods = methods,
+    largest = largest
+  ))
 }
 
 validation_bind_residual_summary <- function(residual_results) {

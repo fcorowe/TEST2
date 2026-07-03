@@ -17,7 +17,9 @@ plot_validation_residual_bands(
   quantile_probs = c(0.5, 0.75, 0.9, 0.95),
   palette = NULL,
   label_min_share = 8,
-  orientation = c("horizontal", "vertical")
+  orientation = c("horizontal", "vertical"),
+  sort = c("none", "ascending", "descending"),
+  sort_metric = c("severe_share", "mean_band_score")
 )
 
 plot_validate_flow_residual_heatmap(...)
@@ -67,6 +69,17 @@ for an in-bar label. Default \code{8}.}
 \item{orientation}{Bar orientation. \code{"horizontal"} places methods on the
 y-axis and shares on the x-axis; \code{"vertical"} keeps methods on the x-axis.
 Default \code{"horizontal"}.}
+
+\item{sort}{Method sort order. Use \code{"none"} to keep the supplied method
+order, \code{"ascending"} for smallest-to-largest values, or \code{"descending"} for
+largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+bottom for horizontal bars and at the right for vertical bars. Default
+\code{"none"}.}
+
+\item{sort_metric}{Residual-band summary used when \code{sort} is not \code{"none"}.
+\code{"severe_share"} sorts by the share in the highest residual band;
+\code{"mean_band_score"} sorts by the share-weighted residual-band score.
+Default \code{"severe_share"}.}
 }
 \value{
 A \code{ggplot} object.

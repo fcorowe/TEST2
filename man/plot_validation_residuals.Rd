@@ -20,7 +20,9 @@ plot_validation_residuals(
   jitter_width = 0.12,
   violin_alpha = 0.5,
   max_points = 5000,
-  y_transform = c("pseudo_log", "identity")
+  y_transform = c("pseudo_log", "identity"),
+  sort = c("none", "ascending", "descending"),
+  sort_metric = c("median_absolute_residual", "mean_absolute_residual", "mean_residual")
 )
 
 plot_validate_flow_residual_violin(...)
@@ -71,6 +73,15 @@ rows. Use \code{Inf} to draw every point. Default \code{5000}.}
 \item{y_transform}{Y-axis transformation. \code{"pseudo_log"} gives a log-like
 display that can still show zero and negative signed residuals. Use
 \code{"identity"} for the raw residual scale. Default \code{"pseudo_log"}.}
+
+\item{sort}{Method sort order. Use \code{"none"} to keep the supplied method
+order, \code{"ascending"} for smallest-to-largest values, or \code{"descending"} for
+largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+right. Default \code{"none"}.}
+
+\item{sort_metric}{Residual summary used when \code{sort} is not \code{"none"}.
+Options are \code{"median_absolute_residual"}, \code{"mean_absolute_residual"}, and
+\code{"mean_residual"}. Default \code{"median_absolute_residual"}.}
 }
 \value{
 A \code{ggplot} object.
