@@ -48,6 +48,9 @@
   as the raw-baseline method row, and Levels 1-5 use the same method set:
   unadjusted raw MPD, the five deterministic adjustment methods, and the
   selected Bayesian `coverage_offset` variant.
+- Replaced the validation vignette summary with a recommendation section that
+  frames method choice around validation sequence, data availability,
+  measurement precision, and time constraints.
 - Added method-sorting controls to validation comparison plots and ensured
   integrated raw-MPD benchmark comparisons display the unadjusted raw MPD
   baseline only once, pinned to the bottom or right edge. LISA maps and

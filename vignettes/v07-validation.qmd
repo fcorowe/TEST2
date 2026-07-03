@@ -712,31 +712,51 @@ if (is.null(validation_lisa_boundaries)) {
 }
 ```
 
-## Summary
+## Recommendation
 
-The main lesson is to validate in levels. Start with the overall metrics, then
-check origin and destination totals, then inspect individual OD-pair residuals,
-then assess origin-conditioned destination allocation, and finally look for
-spatial or covariate-linked residual structure.
+Our recommendation is to adopt a sequence approach to validation. First, we
+suggest to analyse the overall metrics to assess if the resulting adjusted flows
+are broadly closer to the benchmark. Second, we recommend evaluating origin and
+destination marginal diagnostics to determine the precision of correction for
+area totals, and identify systematic under- or over-estimation for specific
+areas. Third, we suggest inspecting individual origin-destinations pairs to
+evaluate corridors of special interest, such as origin-destinations pairs that
+typically have large amounts of interaction.
 
-The example also shows why the same validation data matter. All methods were
-assessed on the same OD pairs and the same benchmark table. This makes the
-method comparison interpretable. If methods were assessed on different rows,
-different time periods or different benchmark definitions, the validation
-results would mix adjustment performance with data construction differences.
+The validation methods presented here offer quantitative evidence to assist in
+the selection of which method to use. However, this decision is not binary and
+depends on a combination of qualitative and quantitative factors:
 
-The evidence from this vignette should therefore be read in a balanced way. In
-some applications, a benchmark-assisted deterministic method may have the
-lowest in-sample error, especially when the benchmark is trusted and matches
-the period being estimated. In other applications, model-based approaches may
-be preferable because they can bring in extra information and more flexible
-structures. Those extensions need their own runtime and diagnostic checks.
-
-For adoption, the practical question is not whether one method is always best.
-The question is whether the selected method is close enough to the benchmark
-for the intended use, whether remaining errors are understandable, and whether
-the data used to fit the method are available and relevant for the period being
-studied.
+- *Data availability*. Adjustment methods require different levels of inputs.
+  Simpler deterministic adjustment methods generally require fewer data inputs.
+  Yet, they often require target benchmark flow data, and these are precisely
+  the data inputs that we often do not have. Benchmark flow data often come
+  from censuses, which are considered the gold standard, but these data are
+  generally collected every ten or five years and are outdated when a crisis
+  occurs or a new evaluation of mobility is needed to support humanitarian
+  operations, planning or policy decisions. Hence, using an adjustment method
+  requiring census benchmark data would produce misleading results if it
+  represented the mobility network at the time of the census rather than the
+  mobility system during the period of interest. An adjustment method, such as
+  the proposed Bayesian multilevel modelling approach, that is not reliant on
+  such inputs may be more appropriate in such scenarios.
+- *Required measurement precision*. Adjustment methods have varying levels of
+  precision in terms of scale reproducing population numbers. Historically,
+  prior work has focused on satisfying the requirement of proportionality by
+  assessing the linear correlation between raw and/or adjusted
+  mobile-phone-derived flows and benchmark flows. Yet, such assessment does not
+  guarantee that raw or adjusted flows provide an accurate estimate in
+  population numbers. They often still represent number of devices, rather than
+  people. Except for the selection rate II method, all the methods in `debiasR`
+  seek to provide population numbers.
+- *Time constraint*. The adjustment methods in `debiasR` may demand more or
+  less time. Such demand will depend on processes such as data gathering, data
+  processing and calibrating adjustment methods. These demands normally
+  intersect and often come into conflict with the speed at which flow estimates
+  are needed. As suggested above, the use of digital trace data is often
+  triggered by the rapid and urgent need to have "rough" population numbers to
+  inform humanitarian, planning or policy decisions, to address a crisis or new
+  intervention.
 
 ## Model inputs used in this vignette
 
