@@ -66,6 +66,12 @@ Last updated: 2026-07-02
   cells should use a table font 1.5px smaller than the default table size. This
   applies to option-guide and method-summary tables like the Bayesian
   model-variant guide.
+- Empirical vignette outputs should use the full LAD complete-grid
+  origin-destination matrix rather than small LAD subsets. The current
+  exception is `vignettes/v06-adjusting-biases.qmd`, which still uses a 25-LAD
+  teaching example because a collaborator is actively revising that vignette.
+  Do not change v06 until that revision lands; then update v06 and its
+  generated Bayesian example files to the full LAD matrix.
 
 ## What Changed Recently
 
@@ -75,6 +81,18 @@ Last updated: 2026-07-02
   keeps the live validation render focused on deterministic methods that can be
   fitted quickly on the full support. Full-LAD Bayesian fitting remains in the
   advanced Bayesian vignette because routine renders should not refit MCMC.
+- Project decision recorded on 2026-07-02: all empirical vignettes should
+  ultimately use the full LAD complete-grid OD matrix, including the adjustment
+  vignette. v07 and v09 now follow that standard; v06 is a temporary exception
+  while collaborator revisions are in progress.
+- The v07 Bayesian validation output set now includes six full-LAD
+  `coverage_offset` specifications and one full-LAD `reduced_form` sensitivity
+  specification. v07 keeps the true-flow `coverage_offset` rows in the main
+  comparison and reports `reduced_form` separately because it is an MPD-scale
+  counterfactual. A dedicated observed-row S3 latent-generation script has been
+  added and smoke-tested on repeated Mapp1/Mapp2 LAD/LTLA rows; the full
+  15,772-state latent confirmatory run remains a long manual job and is not yet
+  stored in package extdata.
 - The Level 5 validation section now includes a reproducible Local Moran/LISA
   workflow for the full LAD support. Local Moran diagnostics use deterministic
   nearest-neighbour links from real LAD centroid distances, and the LISA map
@@ -178,11 +196,10 @@ Last updated: 2026-07-02
   `iter = 1000`, `chains = 4`, and `latent_max_treedepth = 15`; S3 and S4 both
   completed with no divergences, no treedepth hits, E-BFMI above 0.91, max
   R-hat about 1.023, and minimum effective sample size about 190.
-- The adjustment vignette now reads its compact Bayesian example output from a
-  package output file reporting posterior median and mean summaries;
-  maintainers can regenerate it explicitly with
-  `Rscript scripts/precompute_v06_bayesian_example.R` when the model or data
-  change.
+- The adjustment vignette currently reads its Bayesian example output from a
+  package output file reporting posterior median and mean summaries. This v06
+  output still uses the older 25-LAD teaching example and should be regenerated
+  on the full LAD matrix after the collaborator's v06 revision lands.
 - `adjust_all_methods()` is now exported for fitting the main adjustment
   methods on shared MPD, coverage, benchmark, covariate, and distance inputs.
   The adjustment vignette uses this package function instead of a

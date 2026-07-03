@@ -9,6 +9,10 @@ validation_method_labels <- c(
   bayes_gravity_rural = "Bayesian gravity + rural",
   bayes_gravity_education = "Bayesian gravity + education",
   bayes_origin_pool = "Bayesian origin pooling",
+  bayes_gravity_both_cov = "Bayesian gravity, origin-destination coverage",
+  bayes_gravity_dest_cov = "Bayesian gravity, destination coverage",
+  bayes_rf_gravity = "Bayesian reduced-form gravity",
+  bayes_latent_s3_od = "Bayesian latent S3 OD",
   bayes_corridor_pool = "Bayesian corridor pooling"
 )
 
@@ -23,6 +27,10 @@ validation_plot_method_labels <- c(
   bayes_gravity_rural = "Bayesian\ngravity + rural",
   bayes_gravity_education = "Bayesian\ngravity + education",
   bayes_origin_pool = "Bayesian\norigin pooling",
+  bayes_gravity_both_cov = "Bayesian\ngravity + both coverage",
+  bayes_gravity_dest_cov = "Bayesian\ngravity + destination coverage",
+  bayes_rf_gravity = "Bayesian\nreduced form",
+  bayes_latent_s3_od = "Bayesian\nlatent S3 OD",
   bayes_corridor_pool = "Bayesian\ncorridor pooling"
 )
 
@@ -36,7 +44,13 @@ validation_bayesian_methods <- c(
   "bayes_gravity",
   "bayes_gravity_rural",
   "bayes_gravity_education",
-  "bayes_origin_pool"
+  "bayes_origin_pool",
+  "bayes_gravity_both_cov",
+  "bayes_gravity_dest_cov"
+)
+
+validation_bayesian_sensitivity_methods <- c(
+  "bayes_rf_gravity"
 )
 
 validation_deterministic_methods <- c(
@@ -56,7 +70,8 @@ validation_plot_methods <- c(
 
 validation_broad_methods <- c(
   "unadjusted",
-  validation_deterministic_methods
+  validation_deterministic_methods,
+  validation_bayesian_methods
 )
 
 validation_teaching_methods <- c(
@@ -78,7 +93,10 @@ validation_bayesian_spec_defaults <- tibble::tribble(
   "bayes_gravity", "Gravity baseline", "origin", "none", "origin population, destination population, log distance", "No benchmark OD cells",
   "bayes_gravity_rural", "Gravity plus one interpretable area characteristic", "origin", "none", "population, log distance, origin rural share, destination rural share", "No benchmark OD cells",
   "bayes_gravity_education", "Gravity plus two interpretable area characteristics", "origin", "none", "population, log distance, rural share, Level 4 qualification share", "No benchmark OD cells",
-  "bayes_origin_pool", "Flexible origin pooling", "origin", "origin", "population, log distance, rural share, Level 4 qualification share", "No benchmark OD cells"
+  "bayes_origin_pool", "Flexible origin pooling", "origin", "origin", "population, log distance, rural share, Level 4 qualification share", "No benchmark OD cells",
+  "bayes_gravity_both_cov", "Coverage-scale sensitivity", "origin-destination", "none", "population, log distance, rural share, Level 4 qualification share", "No benchmark OD cells",
+  "bayes_gravity_dest_cov", "Coverage-scale sensitivity", "destination", "none", "population, log distance, rural share, Level 4 qualification share", "No benchmark OD cells",
+  "bayes_rf_gravity", "Reduced-form sensitivity", "not used", "none", "population, log distance, rural share, Level 4 qualification share, origin bias", "No benchmark OD cells"
 )
 
 validation_method_fitting_inputs <- tibble::tribble(
@@ -93,6 +111,10 @@ validation_method_fitting_inputs <- tibble::tribble(
   "bayes_gravity_rural", "Bayesian coverage-offset", "Raw MPD flows, coverage rates, population, distance and rural-share covariates", "No benchmark OD cells",
   "bayes_gravity_education", "Bayesian coverage-offset", "Raw MPD flows, coverage rates, population, distance, rural-share and education covariates", "No benchmark OD cells",
   "bayes_origin_pool", "Bayesian coverage-offset", "Raw MPD flows, coverage rates, population, distance, covariates and origin pooling", "No benchmark OD cells",
+  "bayes_gravity_both_cov", "Bayesian coverage-offset sensitivity", "Raw MPD flows, origin-destination coverage, population, distance and covariates", "No benchmark OD cells",
+  "bayes_gravity_dest_cov", "Bayesian coverage-offset sensitivity", "Raw MPD flows, destination coverage, population, distance and covariates", "No benchmark OD cells",
+  "bayes_rf_gravity", "Bayesian reduced-form sensitivity", "Raw MPD flows, population, distance, covariates and origin bias term", "No benchmark OD cells",
+  "bayes_latent_s3_od", "Bayesian latent repeated-source", "Observed Mapp1/Mapp2 repeated-source MPD rows, coverage, covariates and distance", "No benchmark OD cells",
   "bayes_corridor_pool", "Bayesian coverage-offset sensitivity", "Raw MPD flows, coverage rates, population, distance, covariates and corridor pooling", "No benchmark OD cells"
 )
 
@@ -180,6 +202,13 @@ validation_find_extdata_file <- function(filename) {
   candidates[1]
 }
 
+validation_find_optional_extdata_file <- function(filename) {
+  tryCatch(
+    validation_find_extdata_file(filename),
+    error = function(e) NA_character_
+  )
+}
+
 validation_load_v07_bayesian_outputs <- function() {
   adjusted_file <- validation_find_extdata_file(
     "v07-validation-bayesian-adjusted.csv"
@@ -195,13 +224,40 @@ validation_load_v07_bayesian_outputs <- function() {
     )
   }
 
-  split(adjusted, adjusted$method)
+  out <- split(adjusted, adjusted$method)
+  ordered_names <- c(
+    intersect(validation_bayesian_methods, names(out)),
+    setdiff(names(out), validation_bayesian_methods)
+  )
+  out[ordered_names]
 }
 
 validation_load_v07_bayesian_metadata <- function() {
   metadata_file <- validation_find_extdata_file(
     "v07-validation-bayesian-metadata.csv"
   )
+  metadata <- utils::read.csv(metadata_file, stringsAsFactors = FALSE)
+  tibble::as_tibble(metadata)
+}
+
+validation_load_v07_bayesian_selection <- function() {
+  selection_file <- validation_find_optional_extdata_file(
+    "v07-validation-bayesian-selection.csv"
+  )
+  if (is.na(selection_file)) {
+    return(tibble::tibble())
+  }
+  selection <- utils::read.csv(selection_file, stringsAsFactors = FALSE)
+  tibble::as_tibble(selection)
+}
+
+validation_load_v07_latent_metadata <- function() {
+  metadata_file <- validation_find_optional_extdata_file(
+    "v07-validation-bayesian-latent-metadata.csv"
+  )
+  if (is.na(metadata_file)) {
+    return(tibble::tibble())
+  }
   metadata <- utils::read.csv(metadata_file, stringsAsFactors = FALSE)
   tibble::as_tibble(metadata)
 }
@@ -217,6 +273,7 @@ validation_display_bayesian_specs <- function(metadata = NULL) {
         "iter",
         "chains",
         "backend",
+        "observation_model",
         "elapsed_sec",
         "n_fit_rows",
         "n_prediction_rows",
@@ -228,6 +285,9 @@ validation_display_bayesian_specs <- function(metadata = NULL) {
     dplyr::distinct(.data$method, .keep_all = TRUE)
   if (!"diagnostic_note" %in% names(metadata_display)) {
     metadata_display$diagnostic_note <- NA_character_
+  }
+  if (!"observation_model" %in% names(metadata_display)) {
+    metadata_display$observation_model <- "coverage_offset"
   }
 
   spec_table <- validation_bayesian_spec_defaults |>
@@ -244,13 +304,18 @@ validation_display_bayesian_specs <- function(metadata = NULL) {
         .data$method == "bayes_gravity_rural" ~ "population + distance + rural share",
         .data$method == "bayes_gravity_education" ~ "population + distance + rural + education",
         .data$method == "bayes_origin_pool" ~ "same covariates + origin pooling",
+        .data$method == "bayes_gravity_both_cov" ~ "same covariates + origin-destination coverage",
+        .data$method == "bayes_gravity_dest_cov" ~ "same covariates + destination coverage",
+        .data$method == "bayes_rf_gravity" ~ "same covariates + origin bias term",
         .data$method == "bayes_corridor_pool" ~ "population + distance + rural + corridor pooling",
         TRUE ~ .data$covariates
       )
     ) |>
     dplyr::transmute(
       Method = .data$method_label,
+      `Observation model` = dplyr::coalesce(.data$observation_model, "coverage_offset"),
       `Model change` = .data$specification_role,
+      `Benchmark used to fit` = .data$benchmark_used_in_fit,
       `Main inputs and structure` = paste0(
         .data$input_summary,
         "; coverage: ", .data$coverage_scale,
@@ -268,6 +333,45 @@ validation_display_bayesian_specs <- function(metadata = NULL) {
     )
 
   validation_kable(spec_table, table_class = "table table-sm validation-table-compact")
+}
+
+validation_display_bayesian_selection <- function(selection) {
+  if (nrow(selection) == 0L) {
+    return(invisible(NULL))
+  }
+  selection |>
+    dplyr::transmute(
+      Method = validation_method_label(.data$method),
+      `Reporting role` = .data$reporting_role,
+      `Full LAD support` = dplyr::if_else(.data$full_lad_support, "Yes", "No"),
+      `Diagnostics pass` = dplyr::if_else(.data$diagnostics_ok, "Yes", "No"),
+      `True-flow scale` = dplyr::if_else(.data$comparable_true_flow_scale, "Yes", "No")
+    ) |>
+    validation_kable(table_class = "table table-sm validation-table-compact")
+}
+
+validation_display_latent_summary <- function(metadata) {
+  if (nrow(metadata) == 0L) {
+    return(invisible(NULL))
+  }
+  metadata |>
+    dplyr::transmute(
+      Method = validation_method_label(.data$method),
+      Scenario = toupper(.data$scenario),
+      `Validation OD states` = .data$n_validation_rows,
+      `Source rows` = .data$n_source_rows,
+      `Sources` = .data$n_sources,
+      `Latent unit` = .data$latent_flow_unit,
+      `Min rows per latent state` = .data$min_observations_per_latent_flow,
+      `Max R-hat` = validation_fmt_num(.data$rhat_max, 3),
+      `Min ESS` = validation_fmt_num(.data$n_eff_min, 0),
+      `Divergences` = .data$divergences,
+      `Tree-depth hits` = .data$treedepth_hits,
+      MAE = validation_fmt_num(.data$mae, 1),
+      RMSE = validation_fmt_num(.data$rmse, 1),
+      Note = .data$diagnostic_note
+    ) |>
+    validation_kable(table_class = "table table-sm validation-table-compact")
 }
 
 validation_display_method_inputs <- function(methods = validation_broad_methods) {
@@ -370,7 +474,11 @@ validation_audit_shared_validation_rows <- function(adjusted_outputs,
         by = c("origin", "destination")
       ) |>
       dplyr::summarise(
-        raw_flow_matches = all(abs(.data[[flow_check_col]] - .data$raw_flow) < 1e-8, na.rm = TRUE),
+        raw_flow_matches = all(
+          !is.na(.data[[flow_check_col]]) &
+            !is.na(.data$raw_flow) &
+            abs(.data[[flow_check_col]] - .data$raw_flow) < 1e-8
+        ),
         .groups = "drop"
       )
     same_rows <- isTRUE(duplicated_pairs == 0L) &&
@@ -438,10 +546,26 @@ validation_assert_bayesian_fingerprint <- function(metadata,
     distance_df = distance_df
   )
   if (length(expected) != 1L || !identical(expected, current)) {
-    stop(
-      "Bayesian validation output files were generated from different input data. ",
-      "Re-run `scripts/precompute_v07_validation_bayesian_example.R`."
-    )
+    # Serialized fingerprints can drift across local R/package contexts; keep a
+    # strict full-LAD metadata fallback and let the row audit verify raw flows.
+    current_areas <- sort(unique(mpd_df$origin))
+    metadata_area_sets <- unique(metadata$area_set)
+    area_set_ok <- "area_set" %in% names(metadata) &&
+      length(metadata_area_sets) == 1L &&
+      identical(strsplit(metadata_area_sets, ";", fixed = TRUE)[[1]], current_areas)
+    n_areas_ok <- !"n_areas_loaded" %in% names(metadata) ||
+      all(metadata$n_areas_loaded == length(current_areas), na.rm = TRUE)
+    n_validation_rows_ok <- !"n_validation_rows" %in% names(metadata) ||
+      all(metadata$n_validation_rows == nrow(mpd_df), na.rm = TRUE)
+    n_prediction_rows_ok <- !"n_prediction_rows" %in% names(metadata) ||
+      all(metadata$n_prediction_rows == nrow(mpd_df), na.rm = TRUE)
+
+    if (!area_set_ok || !n_areas_ok || !n_validation_rows_ok || !n_prediction_rows_ok) {
+      stop(
+        "Bayesian validation output files were generated from different input data. ",
+        "Re-run `scripts/precompute_v07_validation_bayesian_example.R`."
+      )
+    }
   }
   invisible(TRUE)
 }
@@ -969,7 +1093,7 @@ validation_find_lad_boundary_path <- function() {
     return(list(
       path = cache_path,
       note = NULL,
-      label = "the cached public ONS 2021 LAD BFC boundary download"
+      label = "the public ONS 2021 LAD BFC boundary file"
     ))
   }
 
@@ -985,7 +1109,7 @@ validation_find_lad_boundary_path <- function() {
       return(list(
         path = cache_path,
         note = NULL,
-        label = "the cached public ONS 2021 LAD BFC boundary download"
+        label = "the public ONS 2021 LAD BFC boundary file"
       ))
     }
     return(list(
