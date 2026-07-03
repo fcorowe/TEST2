@@ -196,11 +196,16 @@ methods do not all learn from the same information. We still validate all
 outputs on the same benchmark OD table and the same OD rows.
 
 ```{r method-inputs, echo=FALSE}
-validation_display_method_inputs()
+validation_display_method_inputs(
+  methods = c(validation_broad_methods, validation_bayesian_sensitivity_methods)
+)
 ```
 
-The comparison uses deterministic adjustment methods that can be fitted during
-the live vignette render. Each output uses the full LAD support prepared above.
+The comparison fits deterministic adjustment methods and then adds full-LAD
+Bayesian results generated with `debiasR` on the same inputs. The main Bayesian
+comparison uses `coverage_offset` results because those are on a true-flow
+scale. The `reduced_form` result is kept as a separate MPD-scale sensitivity
+check. Every complete-grid output uses the full LAD support prepared above.
 
 ```{r build-method-results}
 deterministic_results <- list(
@@ -239,19 +244,47 @@ deterministic_results <- list(
   )
 )
 
-all_method_results <- deterministic_results |>
+deterministic_method_results <- deterministic_results |>
   validation_standardize_adjusted_outputs(mpd_df = mpd_od)
+
+bayesian_metadata <- validation_load_v07_bayesian_metadata()
+bayesian_selection <- validation_load_v07_bayesian_selection()
+validation_assert_bayesian_fingerprint(
+  metadata = bayesian_metadata,
+  mpd_df = mpd_od,
+  coverage_df = coverage_validation,
+  covariates_df = covariates_validation,
+  distance_df = distance_validation
+)
+
+bayesian_method_results <- validation_load_v07_bayesian_outputs() |>
+  validation_standardize_adjusted_outputs(mpd_df = mpd_od)
+
+all_method_results <- c(deterministic_method_results, bayesian_method_results)
 
 method_results <- all_method_results[validation_teaching_methods]
 broad_method_results <- all_method_results[validation_broad_methods]
+bayesian_sensitivity_methods <- intersect(
+  validation_bayesian_sensitivity_methods,
+  names(all_method_results)
+)
+bayesian_sensitivity_results <- all_method_results[bayesian_sensitivity_methods]
 ```
 
-The advanced Bayesian vignette covers Bayesian coverage-offset models. Those
-models are not fitted here because full-LAD Bayesian runs are heavier than the
-deterministic examples used in this live validation vignette. When full-LAD
-Bayesian output files are regenerated for the same `r example_data$metadata$n_areas`
-LAD support, they can be added back to this comparison without changing the
-validation levels below.
+The Bayesian rows currently reported in the main comparison are full-LAD
+`coverage_offset` specifications. They use observed MPD flows, active-user
+coverage, area covariates and OD distances, but not benchmark OD cells, during
+fitting. The reduced-form row below is generated on the same full-LAD support,
+but it has a different interpretation: its adjusted flow is an MPD-scale
+counterfactual rather than a true-flow estimate.
+
+```{r bayesian-specifications, echo=FALSE}
+validation_display_bayesian_specs(bayesian_metadata)
+```
+
+```{r bayesian-selection, echo=FALSE}
+validation_display_bayesian_selection(bayesian_selection)
+```
 
 Before validating, we check that every method output uses the same OD pairs and
 the same raw MPD flow column. This is the main comparability check in the
@@ -282,13 +315,15 @@ because percentage errors cannot use zero benchmark flows as denominators.
 ## Broader method comparison
 
 Before moving through the five validation levels, it is useful to look at a
-compact broader comparison. This table includes the unadjusted MPD baseline
-and five deterministic adjustment methods. It uses only the
-adjusted-versus-benchmark comparison, because that is the main question: how
-close is each final output to the benchmark OD table?
+compact broader comparison. This table includes the unadjusted MPD baseline,
+five deterministic adjustment methods and the available full-LAD Bayesian
+`coverage_offset` specifications. It uses only the adjusted-versus-benchmark
+comparison, because that is the main question: how close is each final output
+to the benchmark OD table on the same true-flow scale?
 
 The column called "Benchmark used to fit" is important. Some deterministic
-methods use benchmark totals or benchmark OD cells during calibration.
+methods use benchmark totals or benchmark OD cells during calibration. The
+Bayesian `coverage_offset` rows reserve the benchmark OD table for validation.
 
 ```{r broad-method-comparison, echo=FALSE}
 broad_overall_results <- validation_overall_results(
@@ -315,29 +350,56 @@ plot_validation_metrics(
 ```
 
 This broader table is deliberately compact. It is meant to show the range of
-available choices without making every later section too crowded. The rest of
-the vignette keeps a focused teaching set: Inverse penetration, Selection rate
-II, Raking ratio and Coefficient adjustment. The advanced Bayesian vignette
-explains the Bayesian model variants, parameters and returned columns in more
-detail.
+available choices without making every later section too crowded. The remaining
+diagnostic sections keep a focused teaching set: Inverse penetration, Selection
+rate II, Raking ratio and Coefficient adjustment. The Bayesian rows in the
+broader table show how the existing full-LAD `coverage_offset` specifications
+compare with that deterministic set; the advanced Bayesian vignette explains
+the Bayesian model variants, parameters and returned columns in more detail.
+
+### Bayesian sensitivity checks
+
+The reduced-form Bayesian result is shown separately because it answers a
+different question. It estimates an MPD-scale counterfactual after neutralising
+the fitted bias term. This can be useful for continuity with earlier
+reduced-form analyses, but it should not be read as the same true-flow quantity
+as the `coverage_offset` rows above.
+
+```{r bayesian-sensitivity-comparison, echo=FALSE}
+if (length(bayesian_sensitivity_results) > 0L) {
+  bayesian_sensitivity_overall <- validation_overall_results(
+    adjusted_outputs = bayesian_sensitivity_results,
+    benchmark_df = benchmark_od,
+    comparisons = "adjusted_vs_benchmark"
+  )
+
+  validation_display_compact_overall_metrics(
+    bayesian_sensitivity_overall,
+    methods = bayesian_sensitivity_methods,
+    include_benchmark_used = TRUE
+  )
+}
+```
 
 ## Level 1: Overall validation metrics
 
 Level 1 compares whole OD tables. The table below focuses on the main
-adjusted-versus-benchmark comparison for the teaching methods. The secondary
-comparisons are still computed for the plot and for interpretation, but they
-are not all printed in the table.
+adjusted-versus-benchmark comparison for the broader method set, including the
+Bayesian `coverage_offset` specifications. The secondary comparisons are
+still computed for the plot and for interpretation, but they are not all
+printed in the table.
 
 ```{r level1-overall-metrics, echo=FALSE}
 overall_results <- validation_overall_results(
-  adjusted_outputs = method_results,
+  adjusted_outputs = broad_method_results,
   benchmark_df = benchmark_od,
   comparisons = "all"
 )
 
 validation_display_compact_overall_metrics(
   overall_results,
-  methods = validation_teaching_methods
+  methods = validation_broad_methods,
+  include_benchmark_used = TRUE
 )
 ```
 
@@ -357,6 +419,7 @@ plot_validation_metrics(
   overall_results,
   error_measures = c("mae", "rmse"),
   comparisons = validation_benchmark_comparisons,
+  methods = validation_broad_methods,
   method_labels = validation_plot_method_labels
 )
 ```
@@ -671,7 +734,7 @@ This section uses the same focused teaching set as the earlier plots. The
 optional Moran's I and LISA diagnostics need a neighbour-link table. The Local
 Moran statistic itself uses a reproducible four-nearest-neighbour table derived
 from the real LAD centroid distances returned by `debiasR_example_data()`.
-The LISA map uses a cached, simplified ONS 2021 LAD boundary file when `sf` and
+The LISA map uses a simplified ONS 2021 LAD boundary file when `sf` and
 network access are available. Readers can also set `DEBIAS_LAD_BOUNDARY_PATH`
 to a local `sf`-readable boundary file. The diagnostic should be interpreted
 as distance-neighbour rather than contiguity-neighbour LISA.
@@ -735,7 +798,7 @@ The LISA map below uses the same Local Moran output. Areas with raw permutation
 pseudo p-values above 0.05 are shown as not significant. The table reports both
 raw and adjusted p-values, so the map should be read as an exploratory local
 screen rather than a multiple-testing-adjusted decision rule. Boundary polygons
-come from a cached public ONS LAD boundary download, unless a local path is
+come from an ONS LAD boundary file, unless a local path is
 supplied with `DEBIAS_LAD_BOUNDARY_PATH`. LADs that are present in the boundary
 file but outside the validation support are retained in the same grey used for
 "not significant" areas rather than dropped from the map. Scottish boundary

@@ -18,6 +18,20 @@
   `plot_validation_*()` workflows across the five validation levels. Full-LAD
   Bayesian fitting remains in the advanced Bayesian vignette rather than the
   live validation render because routine vignette builds should not refit MCMC.
+- Added the full-LAD Bayesian `coverage_offset` validation outputs to the
+  validation vignette's method-inputs, row-audit, broad-comparison, and Level 1
+  overall-metric reporting. The article now reports these Bayesian
+  coverage-offset specifications and keeps `latent_two_level` validation
+  outputs deferred until a full repeated-source result file exists.
+- Expanded the v07 Bayesian validation output set with two additional
+  full-LAD `coverage_offset` coverage-scale sensitivity specifications and one
+  full-LAD `reduced_form` sensitivity specification. The validation vignette
+  keeps the true-flow `coverage_offset` rows in the main comparison and reports
+  `reduced_form` separately because it is an MPD-scale counterfactual.
+- Added a v07 latent two-level validation generation script for observed-row
+  repeated-source LAD/LTLA inputs from the external HTW flow files. A bounded
+  smoke run validates the data preparation and output schema; the full
+  repeated-source confirmatory run remains a long manual job.
 - Streamlined validation vignette tables so the broader method comparison is
   compact, the level-by-level walkthrough prints only the most relevant rows
   and columns, and the first two tables use smaller text for readability.
