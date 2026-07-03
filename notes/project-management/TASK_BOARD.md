@@ -1,6 +1,6 @@
 # Task Board
 
-Last updated: 2026-06-25
+Last updated: 2026-07-02
 
 This board turns the current roadmap into a short execution plan. Estimated effort is in rough person-hours.
 
@@ -37,12 +37,27 @@ The staged track below is intended to be implemented one stage per chat window. 
   the frequentist engine remains available for fast testing and experimentation.
 - The default LAD empirical route now has selected-area distance support through
   `debiasRdata::lad_centroids`.
-- The default `coverage_offset` Bayesian route is now empirically approved for
+- The default `coverage_offset` Bayesian model variant is now empirically approved for
   observed-flow LAD S1-S4 workflows; `latent_two_level` is approved as an
-  advanced observed-row S3/S4 repeated-source route with real-data and
+  advanced observed-row S3/S4 repeated-source model variant with real-data and
   diagnostic guardrails.
 
 ## Recently Completed
+
+1. Switch v07 validation to full LAD support and add reproducible LISA maps - `complete`
+- Completed on 2026-07-02.
+- The validation vignette now fits live deterministic validation examples on
+  the full overlapping `debiasRdata` LAD support rather than a 25-area subset.
+  The current example has 313 LADs and 97,969 OD rows.
+- Level 5 now uses deterministic nearest-neighbour LAD centroid links for
+  Local Moran/LISA diagnostics and renders `plot_validation_lisa_map()` when a
+  cached public ONS 2021 LAD BFC boundary download or user-supplied LAD `sf`
+  boundary file is available. Boundary polygons outside the validation support
+  are retained in the same grey as not-significant areas, Scottish background
+  polygons are omitted, and the vignette does not rely on the private
+  `/Volumes/DEBIAS` boundary mount.
+- Full-LAD Bayesian fitting remains outside the live v07 render because of
+  runtime and is documented in the advanced Bayesian vignette.
 
 1. Approve latent two-level Bayesian repeated-source implementation - `complete`
 - Completed on 2026-06-25.
@@ -59,8 +74,8 @@ The staged track below is intended to be implemented one stage per chat window. 
   minimum effective sample size about 190.
 - Decision: approve `observation_model = "latent_two_level"` as an advanced
   Bayesian alternative for observed-row repeated-source S3/S4 workflows. It is
-  not the default route; users should still start with `coverage_offset` unless
-  they need a latent source-invariant true-flow state.
+  not the default model variant; users should still start with
+  `coverage_offset` unless they need a latent source-invariant true-flow state.
 
 1. Approve default coverage-offset Bayesian empirical implementation - `complete`
 - Completed on 2026-06-25.
@@ -74,13 +89,13 @@ The staged track below is intended to be implemented one stage per chat window. 
 - Decision: approve the default `coverage_offset` implementation as a viable
   empirical alternative for observed-flow LAD S1-S4 workflows, especially when
   benchmark OD flows are unavailable for fitting or reserved for validation.
-- Scope: this approval covers the default `coverage_offset` route. The separate
-  latent repeated-source approval is recorded above.
+- Scope: this approval covers the default `coverage_offset` model variant. The
+  separate latent repeated-source approval is recorded above.
 - Documentation updated to frame Bayesian validation as external validation
   against benchmark-assisted methods rather than a pure in-sample MAE contest.
   Raking, selection-rate and coefficient methods can use benchmark margins or
-  OD targets during fitting, while the Bayesian coverage-offset route does not
-  need benchmark OD flows and can reserve them for validation; similar
+  OD targets during fitting, while the Bayesian coverage-offset model variant
+  does not need benchmark OD flows and can reserve them for validation; similar
   benchmark performance is therefore meaningful even when Bayesian does not win
   every metric.
 
@@ -141,9 +156,13 @@ The staged track below is intended to be implemented one stage per chat window. 
 - Follow-up on 2026-06-25: the main adjustment vignette now avoids describing
   all Bayesian variants as a generic two-level model. It scopes the MPD
   observation equation and true-flow prediction equation to the
-  coverage-offset route only, keeps the coefficient-regression distinction in a
-  Quarto callout, and leaves the advanced Bayesian vignette to explain
-  `coverage_offset`, `reduced_form`, and `latent_two_level` separately.
+  coverage-offset model variant only, keeps the coefficient-regression
+  distinction in a Quarto callout, and leaves the advanced Bayesian vignette to
+  explain `coverage_offset`, `reduced_form`, and `latent_two_level` separately.
+- Follow-up on 2026-07-01: the all-method comparison is now backed by exported
+  package API through `adjust_all_methods()` rather than a vignette-only helper,
+  and user-facing vignette examples no longer display `debiasR::` prefixes once
+  `library(debiasR)` has been loaded.
 
 1. Post-public repository hygiene pass - `complete`
 - Completed on 2026-06-12.
@@ -219,16 +238,55 @@ The staged track below is intended to be implemented one stage per chat window. 
 
 ## Later
 
-1. Harden the Bayesian path further - `1-2 days`
+1. Move v06 adjustment examples to full LAD after collaborator revision - `2-4h`
+- Project decision recorded on 2026-07-02: public empirical vignette outputs
+  should use the full LAD complete-grid OD matrix, including
+  `vignettes/v06-adjusting-biases.qmd`.
+- Do not edit v06 while the collaborator's revision is in progress.
+- After that revision lands, update the v06 data setup from the 25-LAD teaching
+  subset to the full LAD matrix, update
+  `scripts/precompute_v06_bayesian_example.R`, regenerate the
+  `inst/extdata/v06-bayesian-s1-*` files, and preview the v06 pkgdown article.
+- Keep v07/v09 as the current full-LAD reference for validation and Bayesian
+  empirical outputs until the v06 update is complete.
+
+2. Generate and store expanded complete-grid Bayesian validation outputs for v07 - `complete`
+- Completed on 2026-07-02 for the full LAD complete-grid OD matrix.
+- v07 now stores and reports six true-flow-scale `coverage_offset`
+  specifications: the original four coverage-offset specifications plus
+  origin-destination coverage and destination-coverage sensitivity variants.
+- v07 also stores one full-LAD `reduced_form` specification and reports it as an
+  MPD-scale sensitivity check, not as part of the true-flow ranking.
+- The selection file records the display rules: full LAD row support,
+  acceptable R-hat/ESS, true-flow target scale for the main comparison, and
+  separate reporting for reduced-form sensitivity rows.
+- v09 diagnostics were regenerated from the corrected v07 metadata.
+
+3. Run full observed-row S3 latent validation output for v07 - `manual long run`
+- A dedicated script now prepares valid repeated-source LAD/LTLA inputs from
+  `/Volumes/DEBIAS/data/outputs/flows/htw`:
+  `scripts/precompute_v07_validation_latent_two_level.R`.
+- The script uses Mapp1 month plus Mapp2 month source rows and the Census
+  LTLA OD benchmark. It keeps Welsh LAD/LTLA codes with the `^[EW][0-9]+$`
+  area-code rule and fits `observation_model = "latent_two_level"` on observed
+  repeated-source rows, not on the S1 complete grid.
+- A 50-OD-state smoke run passed and wrote the expected temporary output files.
+  The full S3 run has 31,544 source rows and 15,772 latent OD states; a
+  confirmatory `iter = 1000`, `chains = 4` run was started locally but stopped
+  after it remained active for more than 20 minutes. Treat the full latent
+  output as a separate manual runtime job before adding latent rows to v07.
+
+4. Harden the Bayesian path further - `1-2 days`
 - Validate complete-grid Bayesian prediction on real `debiasRdata` OD inputs.
-- Keep the LAD coverage-offset route as the approved default empirical path;
+- Keep the LAD coverage-offset model variant as the approved default empirical
+  path;
   add MSOA distance assets only if MSOA-specific empirical Bayesian examples are
   needed.
 - Record feasible empirical grid sizes and runtime expectations for MSOA and
   latent-backend workflows.
 - Keep the Bayesian tests in a clear optional CI lane if the scope expands.
 
-2. Prepare a release-ready maintenance pass - `1-2 days`
+5. Prepare a release-ready maintenance pass - `1-2 days`
 - Re-run the full package check after the CI and migration work settle.
 - Review examples and vignettes for remaining dependency friction.
 - Decide whether a tagged pre-release makes sense after stabilization.
@@ -462,8 +520,11 @@ Vignette and teaching-material tasks:
 1. Design LAD-scale examples.
 - Use LAD data for user-facing vignettes because it is easier to render,
   explain, and teach.
-- Keep examples small enough for optional Bayesian dependencies and vignette
-  rendering constraints.
+- Use the full LAD complete-grid OD matrix for empirical vignette outputs. When
+  Bayesian runtime is too heavy for live rendering, regenerate package output
+  files outside the vignette render rather than reducing the LAD support.
+- Temporary exception: do not update v06 from its current 25-LAD teaching
+  example until the collaborator's v06 revision has landed.
 - Implementation update: the adjustment vignette now uses a Bayesian
   coverage-offset S1 example with one source and one time unit, and describes
   the parameter switches for S2-S4. Full LAD-scale teaching examples for each
