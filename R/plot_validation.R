@@ -198,33 +198,59 @@
   )
 }
 
-.validation_scatter_axis_labels <- function(comparisons) {
+.validation_scatter_series_label <- function(labels) {
+  labels <- unique(dplyr::recode(
+    labels,
+    Adjusted = "adjusted",
+    Benchmark = "benchmark",
+    "Raw MPD" = "raw",
+    .default = labels
+  ))
+  labels <- tolower(labels)
+  if (length(labels) <= 1L) {
+    return(paste0(toupper(substr(labels, 1L, 1L)), substring(labels, 2L)))
+  }
+  if (length(labels) == 2L) {
+    out <- paste(labels, collapse = " or ")
+    return(paste0(toupper(substr(out, 1L, 1L)), substring(out, 2L)))
+  }
+  out <- paste(
+    paste(labels[-length(labels)], collapse = ", "),
+    labels[[length(labels)]],
+    sep = ", or "
+  )
+  paste0(toupper(substr(out, 1L, 1L)), substring(out, 2L))
+}
+
+.validation_scatter_axis_labels <- function(comparisons,
+                                            has_raw_baseline = FALSE) {
   comparisons <- .normalise_flow_comparisons(comparisons)
-  if (.validation_benchmark_only_comparisons(comparisons)) {
-    return(list(
-      x = "Adjusted flow or raw MPD flow (people; see facet)",
-      y = "Benchmark flow (people)"
-    ))
+  spec <- .flow_comparison_spec(comparisons)
+  x_labels <- spec$x_label
+  y_labels <- spec$y_label
+  if (
+    isTRUE(has_raw_baseline) &&
+      identical(comparisons, "adjusted_vs_benchmark")
+  ) {
+    x_labels <- c(x_labels, "Raw MPD")
   }
-
-  if (length(comparisons) == 1L) {
-    spec <- .flow_comparison_spec(comparisons)
-    return(list(
-      x = paste0("X-axis: ", spec$x_label, " flow (people)"),
-      y = paste0("Y-axis: ", spec$y_label, " flow (people)")
-    ))
-  }
-
   list(
-    x = "X-axis flow (people; see facet header)",
-    y = "Y-axis flow (people; see facet header)"
+    x = paste0(.validation_scatter_series_label(x_labels), " flows (people)"),
+    y = paste0(.validation_scatter_series_label(y_labels), " flows (people)")
   )
 }
 
-.validation_difference_label <- function(comparisons) {
+.validation_difference_label <- function(comparisons,
+                                         has_raw_baseline = FALSE) {
   comparisons <- .normalise_flow_comparisons(comparisons)
+  if (
+    isTRUE(has_raw_baseline) &&
+      identical(comparisons, "adjusted_vs_benchmark")
+  ) {
+    return("Benchmark - adjusted/raw")
+  }
   if (.validation_benchmark_only_comparisons(comparisons)) {
-    return("Benchmark - adjusted/raw MPD")
+    return("Benchmark - adjusted/raw")
   }
 
   if (length(comparisons) == 1L) {
@@ -1514,6 +1540,9 @@ plot_validate_flow_residual_violin <- function(...) {
 #' @param method_col Column containing the method identifier. Default
 #'   `"method"`.
 #' @param method_labels Optional named character vector used to relabel methods.
+#' @param facet_ncol Optional number of facet columns. Use this to keep
+#'   multi-method scatterplots compact and avoid very wide panels. Default
+#'   `NULL` lets `ggplot2::facet_wrap()` choose the layout.
 #' @param difference_limits Optional numeric vector of length 2 giving the
 #'   colour-scale limits for the signed difference. Values outside the limits
 #'   are squished to the end colours.
@@ -1546,6 +1575,7 @@ plot_validation_scatter <- function(residuals,
                                     methods = NULL,
                                     method_col = "method",
                                     method_labels = NULL,
+                                    facet_ncol = NULL,
                                     difference_limits = NULL,
                                     difference_quantile = 0.95,
                                     white_band = 0.22,
@@ -1563,6 +1593,18 @@ plot_validation_scatter <- function(residuals,
   .require_ggplot2()
   sort <- match.arg(sort)
   sort_metric <- match.arg(sort_metric)
+  if (!is.null(facet_ncol)) {
+    if (
+      !is.numeric(facet_ncol) ||
+        length(facet_ncol) != 1L ||
+        !is.finite(facet_ncol) ||
+        facet_ncol < 1 ||
+        facet_ncol != as.integer(facet_ncol)
+    ) {
+      stop("`facet_ncol` must be `NULL` or a positive whole number.", call. = FALSE)
+    }
+    facet_ncol <- as.integer(facet_ncol)
+  }
   residual_data <- .as_validate_residual_data(residuals, method_col = method_col)
   residual_data <- .validation_filter_methods(
     residual_data,
@@ -1604,16 +1646,17 @@ plot_validation_scatter <- function(residuals,
       TRUE ~ as.character(plot_data$comparison_label)
     )
   } else {
-    paste0(
-      as.character(plot_data$comparison_label),
-      "\nX: ",
-      plot_data$x_series_label,
-      " | Y: ",
-      plot_data$y_series_label
-    )
+    as.character(plot_data$comparison_label)
   }
-  axis_labels <- .validation_scatter_axis_labels(comparisons)
-  difference_label <- .validation_difference_label(comparisons)
+  has_raw_baseline <- any(.validation_is_raw_baseline_label(plot_data$method_label))
+  axis_labels <- .validation_scatter_axis_labels(
+    comparisons,
+    has_raw_baseline = has_raw_baseline
+  )
+  difference_label <- .validation_difference_label(
+    comparisons,
+    has_raw_baseline = has_raw_baseline
+  )
   sort_data <- plot_data |>
     dplyr::mutate(
       .sort_value = dplyr::case_when(
@@ -1710,21 +1753,23 @@ plot_validation_scatter <- function(residuals,
     )
   }
 
-  facet_layer <- if (.validation_benchmark_only_comparisons(comparisons)) {
+  facet_layer <- if (length(unique(plot_data$comparison)) == 1L) {
+    ggplot2::facet_wrap(
+      ggplot2::vars(.data$method_label),
+      scales = "free",
+      ncol = facet_ncol
+    )
+  } else if (.validation_benchmark_only_comparisons(comparisons)) {
     ggplot2::facet_wrap(
       ggplot2::vars(.data$method_label, .data$scatter_comparison_label),
-      scales = "free"
+      scales = "free",
+      ncol = facet_ncol
     )
   } else if (length(unique(plot_data$comparison)) > 1L) {
     ggplot2::facet_wrap(
       ggplot2::vars(.data$method_label, .data$scatter_comparison_label),
-      scales = "free"
-    )
-  } else {
-    ggplot2::facet_grid(
-      ggplot2::vars(.data$method_label),
-      ggplot2::vars(.data$scatter_comparison_label),
-      scales = "free"
+      scales = "free",
+      ncol = facet_ncol
     )
   }
 
@@ -1745,6 +1790,7 @@ plot_validation_scatter <- function(residuals,
     ggplot2::theme(
       legend.position = "bottom",
       panel.grid.minor = ggplot2::element_blank(),
+      aspect.ratio = 1,
       strip.text.x = ggplot2::element_text(face = "bold", size = 12.5),
       strip.text.y = ggplot2::element_text(face = "bold", size = 12.5)
     )

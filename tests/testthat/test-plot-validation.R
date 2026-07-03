@@ -420,26 +420,32 @@ test_that("validation scatter plot returns a ggplot", {
     fixture$residuals,
     white_band = 0.2
   )
+  compact_plot <- plot_validation_scatter(
+    fixture$residuals,
+    facet_ncol = 2
+  )
 
   expect_s3_class(plot, "ggplot")
   expect_s3_class(benchmark_comparisons_plot, "ggplot")
   expect_equal(unique(as.character(plot$data$comparison)), "adjusted_vs_benchmark")
-  expect_equal(plot$labels$x, "X-axis: Adjusted flow (people)")
-  expect_equal(plot$labels$y, "Y-axis: Benchmark flow (people)")
-  expect_equal(raw_adjusted_plot$labels$x, "X-axis: Raw MPD flow (people)")
-  expect_equal(raw_adjusted_plot$labels$y, "Y-axis: Adjusted flow (people)")
-  expect_equal(raw_benchmark_plot$labels$x, "X-axis: Raw MPD flow (people)")
-  expect_equal(raw_benchmark_plot$labels$y, "Y-axis: Benchmark flow (people)")
+  expect_equal(plot$labels$x, "Adjusted flows (people)")
+  expect_equal(plot$labels$y, "Benchmark flows (people)")
+  expect_equal(raw_adjusted_plot$labels$x, "Raw flows (people)")
+  expect_equal(raw_adjusted_plot$labels$y, "Adjusted flows (people)")
+  expect_equal(raw_benchmark_plot$labels$x, "Raw flows (people)")
+  expect_equal(raw_benchmark_plot$labels$y, "Benchmark flows (people)")
+  expect_equal(compact_plot$facet$params$ncol, 2L)
   expect_equal(
     all_comparisons_plot$labels$x,
-    "X-axis flow (people; see facet header)"
+    "Adjusted or raw flows (people)"
   )
+  expect_equal(all_comparisons_plot$labels$y, "Benchmark or adjusted flows (people)")
   expect_equal(
     sort(unique(as.character(all_comparisons_plot$data$scatter_comparison_label))),
     sort(c(
-      "Adjusted vs benchmark\nX: Adjusted | Y: Benchmark",
-      "Raw MPD vs adjusted\nX: Raw MPD | Y: Adjusted",
-      "Raw MPD vs benchmark\nX: Raw MPD | Y: Benchmark"
+      "Adjusted vs benchmark",
+      "Raw MPD vs adjusted",
+      "Raw MPD vs benchmark"
     ))
   )
   expect_equal(

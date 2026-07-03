@@ -102,32 +102,36 @@ absolute terms.
 
 ## Validation measures
 
-Let $F^{adj}_{ij}$ be the adjusted flow from origin $i$ to destination $j$, and
-let $F^{bench}_{ij}$ be the benchmark flow for the same OD pair. In the
-adjusted-versus-benchmark comparison used by `debiasR`, the signed residual is
-defined as:
+Let $F^{adj}_{ij}$ be the adjusted flow from origin $i$ to destination
+$j$, and let $F^{bench}_{ij}$ be the benchmark flow for the same OD pair.
+Define the error as
+$e_{ij} = F^{adj}_{ij} - F^{bench}_{ij}$. Positive errors mean the adjusted
+flow is larger than the benchmark. Negative errors mean it is smaller. The
+table uses adjusted-versus-benchmark notation.[^validation-measure-reuse]
 
-$$
-e_{ij} = F^{bench}_{ij} - F^{adj}_{ij}.
-$$
-
-Positive residuals mean the benchmark flow is larger than the adjusted flow.
-Negative residuals mean the adjusted flow is larger than the benchmark. The
-same sign convention is used in the residual diagnostics below.[^validation-measure-reuse]
-
-The vignette uses mean error for average signed bias, mean absolute error for
-typical absolute error, root mean squared error for errors that give extra
-weight to large misses, mean absolute percentage error for percentage-scale
-checks, Pearson's r and Spearman's rho for overall pattern agreement,
-Jensen-Shannon divergence for origin-conditioned destination-share allocation,
-and Moran's I for spatial clustering in area-level residuals.
+::: {.validation-table-small}
+| Metric | Description | Equation |
+|:--|:--|:--|
+| Mean error | Average signed error; shows whether flows are overestimated or underestimated on average. | $\frac{1}{n}\sum_{ij} e_{ij}$ |
+| Mean absolute error | Average absolute error; shows the typical size of the error, ignoring sign. | $\frac{1}{n}\sum_{ij} \lvert e_{ij} \rvert$ |
+| Root mean squared error | Error metric that gives more weight to large errors. | $\sqrt{\frac{1}{n}\sum_{ij} e_{ij}^{2}}$ |
+| Median absolute error | Middle absolute error; less affected by a small number of very large errors. | $\mathrm{median}(\lvert e_{ij} \rvert)$ |
+| Mean absolute percentage error | Average absolute error as a percentage of the benchmark flow. | $\frac{100}{n}\sum_{ij}\lvert \frac{e_{ij}}{F^{bench}_{ij}} \rvert$ |
+| Pearson's r | Linear correlation; shows whether large benchmark flows also tend to be large adjusted flows. | $\mathrm{cor}(F^{adj}_{ij}, F^{bench}_{ij})$ |
+| Spearman's rho | Rank correlation; shows whether the ordering of flows is similar. | $\mathrm{cor}(\mathrm{rank}(F^{adj}_{ij}), \mathrm{rank}(F^{bench}_{ij}))$ |
+| Kullback-Leibler divergence | Level 4 metric. Directional difference between origin-conditioned destination-share distributions. Lower values mean the comparison flow allocates destinations more like the reference flow. | $\sum_i\sum_j p^{ref}_{j\mid i}\log\frac{p^{ref}_{j\mid i}}{p^{comp}_{j\mid i}}$ |
+| Jensen-Shannon divergence | Level 4 metric. Symmetric companion to KL divergence for the same origin-conditioned destination-share distributions. Lower values mean closer allocation. | $\frac{1}{2} KL(p^{ref}\mid\mid m) + \frac{1}{2} KL(p^{comp}\mid\mid m)$ |
+| Residual-versus-benchmark-flow correlation | Level 5 diagnostic. Association between remaining residuals and benchmark flow size. Values near zero suggest less obvious scale dependence. | $\mathrm{cor}(e_{ij}, F^{bench}_{ij})$ |
+| Moran's I | Level 5 diagnostic. Spatial autocorrelation in area-level residuals using user-supplied neighbour links $w_{ik}$. Positive values suggest neighbouring areas have similar residuals. | $\frac{n}{W}\frac{\sum_i\sum_k w_{ik}(\bar e_i-\bar e)(\bar e_k-\bar e)}{\sum_i(\bar e_i-\bar e)^2}$ |
+| Local Moran's I and LISA class | Level 5 diagnostic. Local spatial association for each area, with permutation pseudo p-values and cluster classes such as high-high, low-low, high-low and low-high. | $\frac{(\bar e_i-\bar e)\sum_k w_{ik}(\bar e_k-\bar e)}{\sum_i(\bar e_i-\bar e)^2/n}$ |
+| Residual-versus-covariate correlation | Level 5 diagnostic. Association between area-level residuals and a selected area covariate $x_i$. Values near zero suggest less obvious covariate-linked error. | $\mathrm{cor}(\bar e_i, x_i)$ |
+:::
 
 [^validation-measure-reuse]: The equations are written for
     adjusted-versus-benchmark flows. The same formulas can be reused for
     raw-versus-benchmark or raw-versus-adjusted comparisons by replacing
     $F^{adj}_{ij}$ and $F^{bench}_{ij}$ with the two flow columns being
-    compared. For example, raw-versus-benchmark uses raw MPD flows and
-    benchmark flows.
+    compared.
 
 ## Getting ready
 
@@ -420,7 +424,7 @@ an area total. Points near the dashed line have similar values in the two
 datasets being compared. The colour shows the signed difference, so strong
 colours flag areas where the gap is larger.
 
-```{r level2-origin-scatter, fig.width=10, fig.height=11}
+```{r level2-origin-scatter, fig.width=9, fig.height=9}
 origin_margin_residuals <- validation_residual_results(
   adjusted_outputs = origin_margins$adjusted_outputs,
   benchmark_df = origin_margins$benchmark,
@@ -432,13 +436,14 @@ plot_validation_scatter(
   comparisons = "adjusted_vs_benchmark",
   methods = v07_validation_methods,
   method_labels = validation_plot_method_labels,
+  facet_ncol = 3,
   point_size = 2.2,
   point_alpha = 0.8,
   sort = "ascending"
 )
 ```
 
-```{r level2-destination-scatter, fig.width=10, fig.height=11}
+```{r level2-destination-scatter, fig.width=9, fig.height=9}
 destination_margin_residuals <- validation_residual_results(
   adjusted_outputs = destination_margins$adjusted_outputs,
   benchmark_df = destination_margins$benchmark,
@@ -450,6 +455,7 @@ plot_validation_scatter(
   comparisons = "adjusted_vs_benchmark",
   methods = v07_validation_methods,
   method_labels = validation_plot_method_labels,
+  facet_ncol = 3,
   point_size = 2.2,
   point_alpha = 0.8,
   sort = "ascending"
@@ -499,12 +505,13 @@ For adjusted-versus-benchmark panels, this is benchmark minus adjusted flow.
 This makes outliers easier to see: points far from the dashed line and with
 strong colour deserve attention.
 
-```{r level3-flow-scatter, fig.width=10, fig.height=11}
+```{r level3-flow-scatter, fig.width=9, fig.height=9}
 plot_validation_scatter(
   flow_residuals,
   comparisons = "adjusted_vs_benchmark",
   methods = v07_validation_methods,
   method_labels = validation_plot_method_labels,
+  facet_ncol = 3,
   point_alpha = 0.55,
   point_size = 1.2,
   sort = "ascending"

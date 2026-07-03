@@ -41,8 +41,12 @@
   smoke run validates the data preparation and output schema; the full
   repeated-source confirmatory run remains a long manual job.
 - Streamlined the validation vignette so the level-by-level walkthrough relies
-  on figures and prose instead of large result tables. The only displayed table
-  is the method-inputs table, now placed at the end of the article.
+  on figures and prose instead of large result tables. Displayed tables are
+  limited to the compact validation-measures reference and the method-inputs
+  table, now placed at the end of the article.
+- Restored a compact validation-measures reference table in v07 explaining the
+  main error, correlation, distributional, and residual-structure metrics used
+  by `debiasR`.
 - Removed the separate v07 broader-method-comparison section. Level 1 now
   focuses on `adjusted_vs_benchmark`, with unadjusted raw MPD represented once
   as the raw-baseline method row, and Levels 1-5 use the same method set:
@@ -55,6 +59,8 @@
   integrated raw-MPD benchmark comparisons display the unadjusted raw MPD
   baseline only once, pinned to the bottom or right edge. LISA maps and
   pairwise distribution heatmap facets now also honour method sorting.
+- Revised validation scatterplots to use three-column square-panel facet grids
+  and simpler axis labels that name adjusted, benchmark, or raw flows in people.
 - Added prototype `plot_validation_*()` functions for validation metric
   matrices, residual violin plots, pairwise flow scatterplots,
   standard-deviation and quantile residual-band stacked bars, distributional

@@ -11,6 +11,7 @@ plot_validation_scatter(
   methods = NULL,
   method_col = "method",
   method_labels = NULL,
+  facet_ncol = NULL,
   difference_limits = NULL,
   difference_quantile = 0.95,
   white_band = 0.22,
@@ -41,6 +42,10 @@ labels to include. Default \code{NULL} includes all methods.}
 \code{"method"}.}
 
 \item{method_labels}{Optional named character vector used to relabel methods.}
+
+\item{facet_ncol}{Optional number of facet columns. Use this to keep
+multi-method scatterplots compact and avoid very wide panels. Default
+\code{NULL} lets \code{ggplot2::facet_wrap()} choose the layout.}
 
 \item{difference_limits}{Optional numeric vector of length 2 giving the
 colour-scale limits for the signed difference. Values outside the limits
