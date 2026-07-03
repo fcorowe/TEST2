@@ -10,6 +10,12 @@
   removing visible `debiasR::` namespace prefixes, while keeping explicit
   namespaces in hidden helper code where useful.
 
+### Bias-measurement documentation
+
+- Clarified the proportional baseline explanation in the coverage-bias vignette
+  with a two-panel visual showing observed user counts against the
+  constant-coverage baseline and residual departures from that baseline.
+
 ### Validation documentation
 
 - Reworked the validation vignette around the full real LAD
