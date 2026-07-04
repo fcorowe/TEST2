@@ -241,8 +241,7 @@ ggplot(bias_covariates, aes(x = fitted_residual_bias, y = residual_bias)) +
   geom_smooth(method = "lm", se = FALSE, colour = "#8B3A3A") +
   labs(
     x = "Fitted residual bias",
-    y = "Observed residual bias",
-    title =
+    y = "Observed residual bias"
   ) +
   theme_minimal()
 ```
