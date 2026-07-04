@@ -14,24 +14,24 @@ execute:
 editor:
   markdown:
     wrap: 72
+bibliography: references.bib
 ---
 
 ## Aim
 
-The previous vignette measured population coverage bias and showed that
-some LADs are covered better than others. Now, we ask the following question:
-are those differences in coverage related to the characteristics of the
-local populations?
+The [previous vignette](v04-measuring-coverage-bias.html) measured population
+coverage bias and showed that some spatial units are better covered by
+the digital trace data than others. The next natural question to ask is
+whether those differences in coverage are related to the characteristics
+of the local populations. The aim in this vignette is to address that
+question. To this end, we use a simple regression model as a means to
+illustrate the workflow for package users. The research papers
+[@cabrera2025; @cabrera2026] associated with the DEBIAS methodology for
+bias assessment use more flexible machine-learning methods.
 
-The aim is to show how coverage bias can be explored and explained. The
-research paper associated with the DEBIAS methodology uses more flexible
-machine-learning methods for analysis. Here, we use a
-simpler regression model because it is easier to understand and a useful first step
-for package users.
+## Load data
 
-## Load bias and covariates
-
-In this vignette, we illustrate how `debiasR` can be used with example UK data at the local authority district (LAD) level. We start with two tables from `debiasRdata`: a coverage table and a covariates table. The coverage table contains the benchmark Census population and the observed digital trace user count for each LAD. The covariate table contains selected area-level characteristics from the 2021 Census.
+Like in the rest of the `debiasR` documentation, we use UK data at the local authority district (LAD) level for illustration. We start by loading the required packages:
 
 ```{r setup}
 library(debiasR)
@@ -40,42 +40,37 @@ library(dplyr)
 library(ggplot2)
 ```
 
-The coverage table stores the LAD identifier in a column called `code`. We rename it to `area` so that it uses the same identifier name as the covariate table and the rest of the `debiasR` workflow.
+We then load the necessary datasets from `debiasRdata`: the coverage and the covariates datasets. The coverage dataset contains the benchmark Census population and the observed digital trace user count for each LAD. It stores the LAD identifier in a column called `code`. We rename it to `area` so that it uses the same identifier name as the covariate table and the rest of the `debiasR` workflow.
 
 ```{r}
 coverage <- debiasRdata::coverage_lad |>
   rename(area = code)
 
-covariates <- debiasRdata::lad_covariates
-
 head(coverage)
 ```
 
-The covariates included in the data describe some demographic,
-socioeconomic and geographic characteristics of each LAD: percentage of
-UK-born residents, percentage of residents aged 20-29, percentage of
-residents aged 70 or over, percentage of residents with Level 4
-qualifications, percentage of households without central heating,
-percentage of residents in routine occupations and percentage of rural land.
+The covariate table contains selected area-level characteristics from the 2021 Census, including percentage of UK-born residents, percentage of residents aged 20-29, percentage of residents aged 70 or over, percentage of residents with Level 4 qualifications, percentage of households without central heating, percentage of residents in routine occupations and percentage of rural land.
 
 ```{r}
+covariates <- debiasRdata::lad_covariates
+
 head(covariates)
 ```
 
-Next, we calculate the active-user coverage rate and coverage bias.
+Next, we use the `measure_bias()` function to calculate the active-user coverage rate and coverage bias.
 
 ```{r}
 bias_lad <- measure_bias(coverage)
 
 bias_lad |>
-  select(area, name, population, user_count, coverage_score, coverage_bias) |>
+  select(area, population, user_count, coverage_score, coverage_bias) |>
   head()
 ```
 
-The previous vignette introduced the idea of a proportional baseline. If
-every LAD were covered at the same overall rate, each local coverage
-rate would sit close to the national active-user coverage rate. Residuals show
-locations (LADs) where a place departs from that simple expectation.
+The [previous vignette](v04-measuring-coverage-bias.html) introduced the idea of a proportional baseline. If every LAD were covered at the same overall rate, the local coverage
+rate would be the same as the national average. Using the function `validate_bias_residual_structure()`, we can extract the `area_level` object and inspect which locations (LADs) depart from the simple assumption of the proportional baseline model. Positive values of `residual_bias` identify LADs with more coverage bias
+than expected under the proportional baseline. Negative values identify
+LADs with less coverage bias than expected.
 
 ```{r}
 bias_residuals <- validate_bias_residual_structure(
@@ -100,11 +95,7 @@ residual_lad |>
   head()
 ```
 
-Positive values of `residual_bias` identify LADs with more coverage bias
-than expected under the proportional baseline. Negative values identify
-LADs with less coverage bias than expected.
-
-Next, we join these residuals to the area-level covariates.
+Next, we can join these residuals to the area-level covariates via a `left_join` that uses the `area` identifier as the key to merge the two relevant datasets.
 
 ```{r}
 bias_covariates <- residual_lad |>
@@ -125,7 +116,6 @@ bias_covariates <- residual_lad |>
 bias_covariates |>
   select(
     area,
-    name,
     residual_bias,
     per_age_20.29,
     per_age_70plus,
@@ -137,48 +127,60 @@ bias_covariates |>
 
 ## Explore one relationship at a time
 
-Before fitting a model, it is useful to look at simple bivariate
-relationships. These plots enable us to see whether residual bias tends to be higher
-or lower in areas with different local characteristics.
+Before fitting a more complex multivariate model, it is useful to look at simple bivariate relationships. This inspection enables us to see whether residual bias tends to be higher or lower in areas with different local characteristics. For example, below we plot the residual coverage bias against the percentage of population aged between 20 and 29 (left panel) and the percentage of population with level 4 qualifications. While these plots do not prove causality, they help us identify whether coverage bias displays any
+meaningful patterns rather than being randomly distributed across
+places.
 
 ```{r}
-ggplot(bias_covariates, aes(x = per_age_20.29, y = residual_bias)) +
+#| echo: false
+#| fig-width: 10
+#| fig-height: 4.5
+
+plot_young_adults <- ggplot(
+  bias_covariates,
+  aes(x = per_age_20.29, y = residual_bias)
+) +
   geom_hline(yintercept = 0, colour = "grey50") +
   geom_point(alpha = 0.7, colour = "#356859") +
   geom_smooth(method = "lm", se = FALSE, colour = "#8B3A3A") +
   labs(
     x = "Population aged 20-29 (%)",
     y = "Residual coverage bias",
-    title = "Does residual bias vary with the young-adult population share?"
+    title = "Young-adult population share"
   ) +
   theme_minimal()
-```
 
-```{r}
-ggplot(bias_covariates, aes(x = per_level4, y = residual_bias)) +
+plot_qualifications <- ggplot(
+  bias_covariates,
+  aes(x = per_level4, y = residual_bias)
+) +
   geom_hline(yintercept = 0, colour = "grey50") +
   geom_point(alpha = 0.7, colour = "#356859") +
   geom_smooth(method = "lm", se = FALSE, colour = "#8B3A3A") +
   labs(
     x = "Population with level 4 qualifications (%)",
     y = "Residual coverage bias",
-    title = "Does residual bias vary with the share of highly educated individuals?"
+    title = "Level 4 qualification share"
   ) +
   theme_minimal()
+
+grid::grid.newpage()
+grid::pushViewport(grid::viewport(layout = grid::grid.layout(1, 2)))
+print(
+  plot_young_adults,
+  vp = grid::viewport(layout.pos.row = 1, layout.pos.col = 1)
+)
+print(
+  plot_qualifications,
+  vp = grid::viewport(layout.pos.row = 1, layout.pos.col = 2)
+)
 ```
 
-It is important to remember that these plots do not prove causality. However, they help us identify whether coverage
-bias displays any meaningful patterns rather than being randomly distributed across places.
+
 
 ## Fit a simple explanatory model
 
-We now fit a multi-variate linear regression. The outcome is `residual_bias`, which
-measures how much more or less coverage bias an LAD has compared with
-the proportional baseline.
-
-The predictors in this regression represent broad demographic, socioeconomic,
-resource-access and geographic characteristics:
-
+We now fit a multivariate linear regression. The outcome variable in the regression is `residual_bias`, which compares the coverage bias of an LAD has compared with the proportional baseline. The predictors in this regression are the variables in the covariates dataset:
 -   `per_age_20.29`: share of the population aged 20-29
 -   `per_age_70plus`: share of the population aged 70 or over
 -   `per_level4`: share of the population with Level 4 qualifications
@@ -187,7 +189,15 @@ resource-access and geographic characteristics:
     occupations
 -   `rural_pct`: rural population share
 
+Below we fit the model and extract a table of fitted regression coefficients. The sign of each coefficient (estimate) gives the direction of the
+association, holding the other variables in the model constant. A
+positive coefficient means that higher values of the covariate are
+associated with more residual coverage bias (less representation than
+average in the mobile phone dataset). A negative coefficient means that
+higher values are associated with less residual coverage bias.
+
 ```{r}
+
 bias_model <- lm(
   residual_bias ~
     per_age_20.29 +
@@ -199,12 +209,6 @@ bias_model <- lm(
   data = bias_covariates
 )
 
-summary(bias_model)
-```
-
-For easier reading, we can extract the coefficient table.
-
-```{r}
 coefficient_table <- as.data.frame(coef(summary(bias_model)))
 coefficient_table$term <- rownames(coefficient_table)
 rownames(coefficient_table) <- NULL
@@ -214,16 +218,14 @@ coefficient_table |>
   select(term, estimate, std_error, statistic, p_value)
 ```
 
-The sign of each coefficient (estimate) gives the direction of the association,
-holding the other variables in the model constant. A positive
-coefficient means that higher values of the covariate are associated
-with more residual coverage bias (less representation than average in the mobile phone dataset). A negative coefficient means that
-higher values are associated with less residual coverage bias.
+
 
 ## Compare observed and fitted residuals
 
 The fitted values from the model summarise the part of residual bias
-that can be described by the selected covariates.
+that can be described by the selected covariates. But how well is the observed residual bias described by the selected covariates? To answer this question we plot observed vs fitted residual bias. The largest unexplained residuals are areas where the simple model does
+not capture the local pattern well. These areas may be useful to inspect
+before choosing a bias adjustment strategy.
 
 ```{r}
 bias_covariates <- bias_covariates |>
@@ -239,42 +241,35 @@ ggplot(bias_covariates, aes(x = fitted_residual_bias, y = residual_bias)) +
   geom_smooth(method = "lm", se = FALSE, colour = "#8B3A3A") +
   labs(
     x = "Fitted residual bias",
-    y = "Observed residual bias",
-    title = "How much residual bias is described by the selected covariates?"
+    y = "Observed residual bias"
   ) +
   theme_minimal()
 ```
 
-The largest unexplained residuals are areas where the simple model does
-not capture the local pattern well. These areas may be useful to inspect
-before choosing an adjustment strategy.
 
-```{r}
-bias_covariates |>
-  arrange(desc(abs(unexplained_residual))) |>
-  select(
-    area,
-    name,
-    residual_bias,
-    fitted_residual_bias,
-    unexplained_residual
-  ) |>
-  head(10)
+```{r echo=FALSE}
+# bias_covariates |>
+#   arrange(desc(abs(unexplained_residual))) |>
+#   select(
+#     area,
+#     residual_bias,
+#     fitted_residual_bias,
+#     unexplained_residual
+#   ) |>
+#   head(10)
 ```
 
 ## Interpretation
 
-This vignette uses a simple regression to "explain" bias. If residual bias shows a non-trivial relationship with area-level characteristics, then the variation in bias across geographies is not simply random noise. Instead, this is a sign that some types of
-places are more or less visible in the digital trace data than expected
-under a constant-coverage baseline.
+This vignette uses a simple regression to "explain" bias. If residual
+bias shows a non-trivial relationship with area-level characteristics,
+then the variation in bias across geographies is not simply random
+noise. Instead, this is a sign that some types of places are more or
+less visible in the digital trace data than expected under a
+constant-coverage baseline. Therefore, bias adjustment methods need to allow bias to vary across places too.
 
-This will be important for bias adjustment. A single global correction assumes that all
-places are covered at roughly the same rate. If coverage bias varies
-with demographic, socioeconomic or geographic characteristics, then
-adjustment methods need to allow bias to vary across places too.
-
-The regression used here is deliberately simple and descriptive. The associated
-research paper uses more flexible explainable machine-learning methods
-to capture nonlinear and interacting relationships. The purpose of this
-vignette is to introduce the same logic in a way that is easy to
-inspect, reproduce and adapt.
+The regression used here is deliberately simple and descriptive. The
+associated research papers [@cabrera2025; @cabrera2026] use more flexible explainable
+machine-learning methods to capture nonlinear and interacting
+relationships between bias and area-level covariates. The purpose of this vignette is to introduce the same
+logic in a way that is easy to inspect, reproduce and adapt.
