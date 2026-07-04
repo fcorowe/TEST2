@@ -15,26 +15,14 @@ execute:
 
 ## Aim
 
-This vignette shows how to measure population coverage bias in mobile-phone-derived data. The goal is simple: compare how many people are captured in the digital trace data with how many people live in each area according to a trusted benchmark.
-
-We use the notation introduced in the previous vignette. For each Local Authority District (LAD) $i$, let:
+This vignette shows how to measure population coverage bias in mobile-phone-derived data. The goal is to compare how many people are captured in the digital trace data with how many people live in each area according to a trusted benchmark. We use the notation introduced in the previous vignette. For each spatial unit $i$, Local Authority Districts (LADs) in our case, let:
 
 - $U_i$ be the observed digital trace user count
 - $P_i$ be the benchmark population count from the 2021 Census
 - $c_i$ be the active-user coverage rate
 - $b_i$ be the coverage bias
 
-The two core quantities are:
-
-$$
-c_i = \frac{U_i}{P_i}
-$$
-
-$$
-b_i = 1 - c_i
-$$
-
-So, if an area has $c_i = 0.04$, the digital trace data cover about 4 people per 100 residents, and the coverage bias is $b_i = 0.96$. Lower values of $b_i$ mean better coverage. Values above zero usually mean undercoverage relative to the Census benchmark.
+where $c_i = U_i/P_i$ and $b_i = 1 - c_i$. So, if an area has $c_i = 0.04$, the digital trace data cover about 4 people per 100 residents, and the coverage bias is $b_i = 0.96$. Lower values of $b_i$ mean better coverage.
 
 ## Load data
 
@@ -49,29 +37,22 @@ library(ggplot2)
 
 ```{r}
 coverage <- debiasRdata::coverage_lad
-
 head(coverage)
 ```
 
-`measure_bias()` expects the benchmark population column to be called `population` and the digital trace population column to be called `user_count`. These names are already used in `coverage_lad`; we only rename the area code to `area` so the later residual diagnostic has a standard area identifier.
+`measure_bias()` expects the benchmark population column to be called `population` and the digital trace population column to be called `user_count`. These names are already used in `coverage_lad`; we only rename the area code to `area` so the later residual assessment function has a standard area column identifier.
 
 ```{r}
 coverage <- coverage |>
   rename(
     area = code
   )
-
 head(coverage)
 ```
 
-## Measure coverage bias
+## Measuring coverage bias
 
-`measure_bias()` calculates the active-user coverage rate $c_i = U_i / P_i$ and the coverage bias $b_i = 1 - c_i$.
-
-The function returns these as:
-
-- `coverage_score`, which is $c_i$
-- `coverage_bias`, which is $b_i$
+The function `measure_bias()` calculates the active-user coverage rate $c_i = U_i/P_i$ and the coverage bias $b_i = 1 - c_i$. The function returns these as `coverage_score`, which is $c_i$ and `coverage_bias`, which is $b_i$. Below we print its output:
 
 ```{r}
 bias_lad <- measure_bias(coverage)
@@ -81,40 +62,33 @@ bias_lad |>
   head()
 ```
 
-A useful first summary is the overall coverage across all LADs. This answers: across England and Wales as a whole, what share of the Census population is captured in the digital trace population count?
+A useful first summary is the overall coverage across all LADs. So, across England and Wales as a whole, what share of the Census population is captured in the digital trace population count?
 
 ```{r}
 bias_lad |>
   summarise(
     lad_count = n(),
-    census_population = sum(population),
-    digital_trace_population = sum(user_count),
-    overall_coverage_score = sum(user_count) / sum(population),
-    overall_coverage_bias = 1 - overall_coverage_score
+    census_pop = sum(population),
+    digital_trace_pop = sum(user_count),
+    overall_coverage = sum(user_count) / sum(population),
+    overall_coverage_bias = 1 - overall_coverage
   )
 ```
 
-This overall number is useful, but it can hide important local differences. A data source may have reasonable national coverage while still covering some places much better than others.
+While these overall numbers are quite informative, they can hide important local differences. A data source may have reasonable national coverage while still covering some places much better than others.
 
-## Compare LADs
+## Comparing coverage across spatial units
 
-The next step is to look at variation across LADs. The areas with the lowest values of $b_i$ have the strongest digital trace coverage. The areas with the highest values of $b_i$ have the weakest coverage.
+The next step is to look at variation across spatial units or LADs. The areas with the lowest values of $b_i$ have the strongest digital trace coverage. The areas with the highest values of $b_i$ have the weakest coverage.
 
 ```{r}
 bias_lad |>
   arrange(coverage_bias) |>
   select(area, name, population, user_count, coverage_score, coverage_bias) |>
-  head(10)
+  head()
 ```
 
-```{r}
-bias_lad |>
-  arrange(desc(coverage_bias)) |>
-  select(area, name, population, user_count, coverage_score, coverage_bias) |>
-  head(10)
-```
-
-A histogram gives a quick view of how uneven coverage is across LADs.
+A histogram gives a view of how uneven coverage is across LADs.
 
 ```{r}
 ggplot(bias_lad, aes(x = coverage_bias)) +
@@ -127,20 +101,9 @@ ggplot(bias_lad, aes(x = coverage_bias)) +
   theme_minimal()
 ```
 
-## Measure distributional bias
+## Assessing bias distribution
 
-Coverage rates tell us whether each area is over- or under-represented relative
-to its own benchmark population. A related question is whether the active-user
-population is distributed across areas in the same proportions as the Census
-population. For example, if an LAD contains 3% of the benchmark population, a
-proportionally representative active-user dataset would also place about 3% of
-active users in that LAD.
-
-`measure_bias_distribution()` summarises this distributional comparison. It
-uses the benchmark population shares as the reference distribution and active
-user shares as the comparison distribution. Lower KL divergence and
-Jensen-Shannon divergence mean the active-user distribution is closer to the
-benchmark population distribution.
+Coverage rates tell us the extent to which the digital trace data captures the population in each area relative to its own benchmark population. A related question is whether the active-user population is distributed across areas in the same proportions as the benchmark population. For example, if an LAD contains 3% of the benchmark population, does the active-user dataset also place about 3% of active users in that LAD? The function `measure_bias_distribution()` summarises this distributional comparison. It uses the benchmark population shares as the reference distribution and active user shares as the comparison distribution. Lower KL divergence and Jensen-Shannon divergence mean the active-user distribution is closer to the benchmark population distribution.
 
 ```{r}
 distribution_bias <- measure_bias_distribution(
@@ -149,14 +112,10 @@ distribution_bias <- measure_bias_distribution(
   population_col = "population",
   user_count_col = "user_count"
 )
-
-distribution_bias$summary
 ```
 
 The area-level output shows which LADs contribute most to the difference
-between the two distributions. Positive share differences mean an LAD accounts
-for a larger share of active users than of the benchmark population. Negative
-values mean the opposite.
+between the two distributions. Positive share differences mean an LAD accounts for a larger share of active users than of the benchmark population. Negative values mean the opposite.
 
 ```{r}
 distribution_bias$area_level |>
@@ -177,20 +136,33 @@ distribution_bias$area_level |>
     kl_contribution,
     jsd_contribution
   ) |>
-  head(10)
+  head()
 ```
 
-Before looking at residuals, it is useful to check the basic relationship
-between benchmark population and observed digital trace user counts. Larger LADs
-should generally have larger user counts. If they did not, the data would be a
-poor population proxy from the start.
 
-The figure below turns this check into a proportional baseline. The line shows
-the user count we would expect if every LAD had the same overall active-user
-coverage rate. The points do follow the line reasonably well, which is
-reassuring. But the second panel also shows that some LADs sit above or below
-that expectation. These departures are the beginning of the residual bias
-question.
+Another useful and more visual check consists in inspecting the relationship between the benchmark population and the observed digital trace user counts. Larger LADs should generally have larger user counts. If they did not, the data would be a poor population proxy. The figure below displays this relationship as a scatter plot, where each dot represents a spatial unit. There seems to be a reasonable level of correlation between the benchmark population and the observed digital trace counts. However, further investigation of the relationship is needed, as it can tell us more about what areas may be under-represented in the digital trace data and why.
+
+```{r}
+#| echo: false
+#| fig-width: 7
+#| fig-height: 5
+#| fig-cap: "Observed digital trace user counts generally increase with Census population across LADs."
+ggplot(bias_lad, aes(x = population, y = user_count)) +
+  geom_point(alpha = 0.7, colour = "#356859") +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    x = expression("Census population, " * P[i]),
+    y = expression("Observed user count, " * U[i]),
+    title = "Census population and observed user counts"
+  ) +
+  theme_minimal()
+```
+
+
+### Proportional baseline model
+
+To further investigate the relationship between the benchmark population and observed digital trace user counts, we can start by fitting a linear model. If the level of population coverage was the same across all LADs, we would expect the observed data in the scatter plot to align perfectly to the proportionality line. We call this model the proportional baseline. The left panel in the figure below displays the same scatter plot we had above, plus the proportional baseline model. Although the points follow the overall relationship reasonably well, the residuals in the right panel reveal substantial differences between LADs. These residuals show where observed user counts are higher or lower than expected under constant coverage. We can then investigate whether these differences are associated with the population characteristics of each LAD. Systematic relationships would suggest that some population groups or types of areas are more visible in the digital trace data than others.
 
 ```{r}
 #| echo: false
@@ -249,36 +221,8 @@ print(
 )
 ```
 
-## Proportional baseline
 
-The proportional baseline is useful because it gives us a simple expectation:
-if the digital trace data captured the same share of the population in every
-LAD, then differences in user counts would mainly reflect differences in Census
-population size.
-
-That is a sensible first check, but it is not the same as saying the data are
-representative. A dataset can scale well with population overall while still
-covering some places better than others. The residuals from the baseline show
-where those local departures occur.
-
-`debiasR::validate_bias_residual_structure()` calculates this baseline and
-returns expected user counts plus several residual measures for each LAD. These
-include count residuals, defined as observed user counts minus the counts
-expected under constant coverage, and the default `coverage_score_residual`,
-defined as local coverage minus overall coverage.
-
-```{r}
-bias_residuals <- validate_bias_residual_structure(
-  coverage_df = coverage,
-  coverage_area_col = "area",
-  population_col = "population",
-  user_count_col = "user_count"
-)
-
-```
-
-The object returned by `validate_bias_residual_structure()` is a list. Each
-component gives different information:
+The function `validate_bias_residual_structure()` calculates the proportional baseline model and returns expected user counts under the equal-coverage assumption, plus several residual measures for each LAD. The object returned by `validate_bias_residual_structure()` is a list. Each component gives different information:
 
 - `summary` gives the overall active-user coverage rate, the number of areas and summary
   measures of the residuals
@@ -299,25 +243,30 @@ component gives different information:
   geometry or coordinate data when these are supplied
 
 Some optional components may also appear if extra inputs are provided. For
-example, `benchmark_flow_data` is returned when benchmark OD flows are supplied,
-`covariate_data` is returned when a covariate is supplied and `plots` is returned
-when `make_plots = TRUE`.
-
-For the rest of this vignette, we focus on three components: `summary`,
-`residual_definitions` and `area_level`.
+example, `benchmark_flow_data` is returned when benchmark OD flows are supplied, `covariate_data` is returned when a covariate is supplied and `plots` is returned when `make_plots = TRUE`.
 
 ```{r}
-names(bias_residuals)
+bias_residuals <- validate_bias_residual_structure(
+  coverage_df = coverage,
+  coverage_area_col = "area",
+  population_col = "population",
+  user_count_col = "user_count"
+)
+
 ```
 
-The `summary` component provides a compact description of the proportional
-baseline. Here, `global_coverage_score` is the share of the total benchmark
-population captured by the digital trace data across all LADs combined. This is
-the constant coverage rate used to calculate the expected user count in each
-LAD.
+
+For the rest of this vignette, we focus on three components: `summary`,
+`residual_definitions` and `area_level`. The `summary` component provides a compact description of the proportional baseline, where `global_coverage_score` is the share of the total benchmark population captured by the digital trace data across all LADs combined. This is the constant coverage rate used to calculate the expected user count in each LAD.
 
 ```{r}
-bias_residuals$summary
+as.data.frame(bias_residuals$summary) |>
+  select(
+    residual_type,
+    total_population,
+    total_user_count,
+    global_coverage_score
+  )
 ```
 
 The `residual_definitions` component is a useful reminder of the residuals
@@ -325,12 +274,15 @@ available in the output. By default, the selected residual is
 `coverage_score_residual`.
 
 ```{r}
-bias_residuals$residual_definitions
+as.data.frame(bias_residuals$residual_definitions) |>
+  select(
+    residual,
+    definition
+  ) |>
+  head(2)
 ```
 
-The `area_level` component is the main table used for interpretation. It keeps
-the original population and user counts, adds the expected user count under the
-proportional baseline and then calculates residuals for each LAD.
+The `area_level` component is the main table used for interpretation. It keeps the original population and user counts, adds the expected user count under the proportional baseline and then calculates residuals for each LAD.
 
 ```{r}
 bias_residuals$area_level |>
@@ -340,27 +292,12 @@ bias_residuals$area_level |>
     user_count,
     expected_user_count,
     coverage_score,
-    coverage_score_residual,
-    selected_residual
+    coverage_score_residual
   ) |>
   head()
 ```
 
-The default residual, `coverage_score_residual`, is local coverage minus overall coverage:
-
-$$
-c_i - \bar{c}
-$$
-
-Here, $\bar{c}$ is the overall active-user coverage rate. Positive values mean the LAD is covered more than expected under the proportional baseline. Negative values mean the LAD is covered less than expected.
-
-Because the vignette focuses on bias, we also create a bias residual:
-
-$$
-r_i = b_i - \bar{b}
-$$
-
-where $\bar{b} = 1 - \bar{c}$. Positive values of $r_i$ mean the LAD has more coverage bias than expected under the proportional baseline. Negative values mean it has less coverage bias than expected.
+The default residual, `coverage_score_residual`, is local coverage minus overall coverage $c_i - \bar{c}$, where $\bar{c}$ is the overall active-user coverage rate. Positive values mean the LAD is covered more than expected under the proportional baseline. Negative values mean the LAD is covered less than expected. Because the vignette focuses on bias, we also create a bias residual, defined as $r_i = b_i - \bar{b}$ where $\bar{b} = 1 - \bar{c}$. Then, positive values of $r_i$ mean the LAD has more coverage bias than expected under the proportional baseline. Negative values mean it has less coverage bias than expected. The largest positive residuals are LADs where digital trace coverage is lower than expected from the national baseline. Similarly, the most negative residuals are LADs where coverage is higher than expected.
 
 ```{r}
 residual_lad <- bias_residuals$area_level |>
@@ -373,43 +310,14 @@ residual_lad <- bias_residuals$area_level |>
     coverage |> select(area, name),
     by = "area"
   )
-
-residual_lad |>
-  select(
-    area,
-    name,
-    population,
-    user_count,
-    baseline_coverage_score,
-    coverage_score,
-    coverage_bias,
-    residual_bias
-  ) |>
-  head()
 ```
 
-The largest positive residuals are LADs where digital trace coverage is lower than expected from the national baseline.
-
-```{r}
-residual_lad |>
-  arrange(desc(residual_bias)) |>
-  select(area, name, population, user_count, coverage_score, coverage_bias, residual_bias) |>
-  head(10)
-```
-
-The most negative residuals are LADs where coverage is higher than expected.
-
-```{r}
-residual_lad |>
-  arrange(residual_bias) |>
-  select(area, name, population, user_count, coverage_score, coverage_bias, residual_bias) |>
-  head(10)
-```
+We can visualise the distribution of residual bias in a histogram.
 
 ```{r}
 ggplot(residual_lad, aes(x = residual_bias)) +
   geom_vline(xintercept = 0, colour = "grey40") +
-  geom_histogram(bins = 30, colour = "white", fill = "#6B5B95") +
+  geom_histogram(bins = 30, colour = "white", fill = "#356859") +
   labs(
     x = expression("Bias residual relative to proportional baseline, " * r[i]),
     y = "Number of LADs",
@@ -418,10 +326,8 @@ ggplot(residual_lad, aes(x = residual_bias)) +
   theme_minimal()
 ```
 
-## Interpretation
+### Interpretation
 
-We have seen that population coverage bias tells us how much of the benchmark population is visible in the digital trace data. But, is this coverage roughly constant across places, or are some LADs more visible in the data than others?
-
-In practice, we find that coverage tends to be uneven. Some LADs are overcovered or undercovered relative to the national average coverage rate. These departures raise a representativeness question: why is a particular place more or less visible than expected? One possibility is that the area contains a larger share of population groups (e.g. people aged 20-29) that are more or less likely to appear in the digital trace data.
+We have seen that population coverage bias tells us how much of the benchmark population is visible in the digital trace data. But, is this coverage roughly constant across places, or are some LADs more visible in the data than others? In practice, we find that coverage tends to be uneven. Some LADs are overcovered or undercovered relative to the national average coverage rate. These departures raise a representativeness question: why is a particular place more or less visible than expected? One possibility is that the area contains a larger share of population groups (e.g. people aged 20-29) that are more or less likely to appear in the digital trace data.
 
 The key message is that high overall coverage is not the same as representativeness. A data source can capture many people in total while still representing some places and population groups better than others. So, our next step is to ask whether residual coverage bias is associated with area characteristics such as age structure, socioeconomic composition or rurality.
