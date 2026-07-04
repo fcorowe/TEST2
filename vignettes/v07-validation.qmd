@@ -40,39 +40,41 @@ table.validation-table-compact,
 
 ## Aim
 
-This vignette describes how to validate adjusted mobile-phone-derived
-origin-destination (OD) flows against a benchmark OD table. The aim is simple:
-after an adjustment method has been applied, we want to know whether the
-adjusted flows are closer to the benchmark flows than the raw mobile-phone
-flows were.
+This vignette describes how to use the `debiasR` functions to assess and
+validate the resulting adjusted mobile-phone-derived origin-destination
+(OD) flows from one of the adjustment methods included in `debiasR`
+against a set of target benchmark flows (i.e. adjusted *versus*
+benchmark flows). This tells us how close the final adjusted output is
+to a chosen target benchmark. The comparison between adjusted *versus*
+benchmark flows is the primary focus. `debiasR` enables two additional
+comparisons:
 
-The key comparison is adjusted *versus* benchmark flows. This tells us how close
-each output is to the target benchmark. The raw mobile-phone-derived table is
-included as an unadjusted method, so the same adjusted-versus-benchmark
-comparison also shows the starting point before correction.
+- raw mobile-phone-derived *versus* benchmark flows. This tells us the
+  starting extent of bias before adjustment.
+- raw mobile-phone-derived *versus* adjusted flows. This tells us the
+  level of adjustment applied to the original raw data and how much
+  closer a given method moves the flows to the original data.
 
-A central requirement in this vignette is fairness. All methods are assessed
-using the same validation data: the same raw OD table, the same benchmark OD
-table, and the same full LAD origin-destination matrix. When a method needs
-additional fitting inputs, such as coverage rates, distance or covariates,
-those inputs are taken from the same prepared example data.
-LAD means local authority district, a local government geography used in the
-example data.
-
-The example compares deterministic adjustment methods that can be fitted live
-on the full LAD matrix during vignette rendering. These include simple coverage
-weighting, benchmark-assisted calibration and benchmark-cell calibration. It
-also includes saved Bayesian `coverage_offset` variants. Some methods use
-benchmark totals or benchmark OD cells during fitting, so the validation result
-should be read alongside the fitting inputs table rather than as a single
-winner-takes-all ranking.
+::: {.callout-note title="Vignette focus"}
+This vignette focuses on the use of `debiasR` validation functions. It
+does not focus on providing an exhaustive comparison of adjustment
+methods. Such comparison requires a more comprehensive setup. So do not
+take the results provided here as evidence to prefer one model over
+another. A key issue to have in mind is that we are comparing
+benchmark-assisted methods (which can "see" the target benchmark flow
+data) against non-benchmark-assisted Bayesian models (which do not "see"
+these flows).
+:::
 
 ## Intuition
 
-A practical validation strategy is to move from broad summaries to more local
-diagnostics. This helps us avoid relying on one number. A method can look good
-overall and still perform poorly for some origins, destinations or individual
-OD pairs.
+The `debiasR` framework to assess adjusted flows is organised based on
+five levels moving, from *coarse* overall summaries across the system of
+flows, to more granular diagnostics at the local area level. In this
+way, `debiasR` recognises the complexity of the assessment process which
+cannot rely on a simple number. Adjusted flows can look good overall
+and still perform poorly for some origins, destinations or individual OD
+pairs.
 
 This vignette uses five levels.
 
