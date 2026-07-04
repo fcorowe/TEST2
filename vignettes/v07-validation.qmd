@@ -62,7 +62,7 @@ example data.
 The example compares deterministic adjustment methods that can be fitted live
 on the full LAD matrix during vignette rendering. These include simple coverage
 weighting, benchmark-assisted calibration and benchmark-cell calibration. It
-also includes one saved Bayesian `coverage_offset` result. Some methods use
+also includes saved Bayesian `coverage_offset` variants. Some methods use
 benchmark totals or benchmark OD cells during fitting, so the validation result
 should be read alongside the fitting inputs table rather than as a single
 winner-takes-all ranking.
@@ -253,43 +253,42 @@ bayesian_method_results <- bayesian_method_results |>
   validation_standardize_adjusted_outputs(mpd_df = mpd_od)
 ```
 
-The selected Bayesian row is the best-performing saved `coverage_offset`
-variant by Level 1 mean absolute error. This gives the vignette one Bayesian
-comparison row while keeping the full set of saved Bayesian outputs available
-for the advanced Bayesian vignette.
+The saved Bayesian rows include several `coverage_offset` variants. Level 1
+uses the gravity, gravity plus education, and gravity plus education and origin
+pooling variants. Levels 2 to 5 keep the Bayesian gravity plus education row.
 
 ```{r assemble-validation-method-set, include=FALSE}
 all_method_results <- c(deterministic_method_results, bayesian_method_results)
 
-bayesian_overall_results <- validation_overall_results(
-  adjusted_outputs = all_method_results[validation_bayesian_methods],
-  benchmark_df = benchmark_od,
-  comparisons = "adjusted_vs_benchmark"
-)
-
-selected_bayesian_method <- validation_best_method_id(
-  bayesian_overall_results,
-  comparison = "adjusted_vs_benchmark",
-  metric = "mae",
-  methods = validation_bayesian_methods
-)
-
-v07_validation_methods <- c(
+level1_methods <- c(
   "unadjusted",
-  deterministic_methods,
-  selected_bayesian_method
+  setdiff(deterministic_methods, c("selection_rate", "raking_ratio")),
+  "bayes_gravity",
+  "bayes_gravity_education",
+  "bayes_origin_pool"
 )
 
-v07_method_results <- all_method_results[v07_validation_methods]
-selected_bayesian_label <- validation_method_label(selected_bayesian_method)
+validation_methods <- c(
+  "inverse_penetration",
+  "coefficient",
+  "bayes_gravity_education",
+  "unadjusted"
+)
+
+level1_method_results <- all_method_results[level1_methods]
+validation_method_results <- all_method_results[validation_methods]
+displayed_methods <- unique(c(level1_methods, validation_methods))
+displayed_method_results <- all_method_results[displayed_methods]
 ```
 
-For the five validation levels, the vignette therefore compares the unadjusted
-raw MPD baseline, five deterministic adjustment methods and
-`r selected_bayesian_label`. The deterministic methods cover coverage
-weighting, benchmark-margin calibration and benchmark-cell calibration. The
-Bayesian row does not use benchmark OD cells during fitting, so its validation
-scores should be read alongside the model-inputs table at the end.
+The validation levels use two deliberately small comparison sets. Level 1 keeps
+a broader overall comparison, excluding the selection rate and raking ratio
+outputs and adding Bayesian gravity and Bayesian gravity plus education and
+origin pooling. Levels 2 to 5 then focus on inverse penetration, coefficient
+adjustment, Bayesian gravity plus education and the unadjusted raw MPD
+baseline. The Bayesian rows do not use benchmark OD cells during fitting, so
+their validation scores should be read alongside the model-inputs table at the
+end.
 
 Before validating, we check that every method output uses the same OD pairs and
 the same raw MPD flow column. This is the main comparability check in the
@@ -297,7 +296,7 @@ vignette.
 
 ```{r validation-row-audit, include=FALSE}
 row_audit <- validation_audit_shared_validation_rows(
-  adjusted_outputs = v07_method_results,
+  adjusted_outputs = displayed_method_results,
   mpd_df = mpd_od,
   benchmark_df = benchmark_od
 )
@@ -318,13 +317,12 @@ because percentage errors cannot use zero benchmark flows as denominators.
 ## Level 1: Overall validation metrics
 
 Level 1 compares whole OD tables. The main adjusted-versus-benchmark comparison
-uses the same method set used throughout the rest of the vignette: unadjusted
-raw MPD, the five deterministic adjustment methods and the selected Bayesian
-`coverage_offset` variant.
+uses the unadjusted raw MPD baseline, inverse penetration, selection rate II,
+coefficient adjustment and three Bayesian `coverage_offset` variants.
 
 ```{r level1-overall-metrics, include=FALSE}
 overall_results <- validation_overall_results(
-  adjusted_outputs = v07_method_results,
+  adjusted_outputs = level1_method_results,
   benchmark_df = benchmark_od,
   comparisons = "adjusted_vs_benchmark"
 )
@@ -346,7 +344,7 @@ plot_validation_metrics(
   overall_results,
   error_measures = c("mae", "rmse"),
   comparisons = "adjusted_vs_benchmark",
-  methods = v07_validation_methods,
+  methods = level1_methods,
   method_labels = validation_plot_method_labels,
   sort = "ascending",
   sort_metric = "mae"
@@ -364,13 +362,13 @@ level1_best_overall <- validation_best_method(
   overall_results,
   comparison = "adjusted_vs_benchmark",
   metric = "mae",
-  methods = v07_validation_methods
+  methods = level1_methods
 )
 level1_best_cor <- validation_best_method(
   overall_results,
   comparison = "adjusted_vs_benchmark",
   metric = "pearson_r",
-  methods = v07_validation_methods,
+  methods = level1_methods,
   largest = TRUE
 )
 ```
@@ -385,15 +383,16 @@ pattern of flows.
 
 Level 2 compares geographical area totals. An **origin marginal** adds together
 all flows leaving each origin. A **destination marginal** adds together all
-flows arriving in each destination. This section uses the same seven-method
-comparison set as Level 1.
+flows arriving in each destination. From this point onward, the vignette uses
+four outputs: inverse penetration, coefficient adjustment, Bayesian gravity
+plus education and unadjusted raw MPD.
 
 This level is useful because an adjustment can look reasonable overall while
 still overestimating or underestimating the flows of particular areas.
 
 ```{r level2-origin-marginal-metrics, include=FALSE}
 origin_margins <- validation_build_marginal_tables(
-  adjusted_outputs = v07_method_results,
+  adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
   role = "origin"
 )
@@ -407,7 +406,7 @@ origin_margin_metrics <- validation_overall_results(
 
 ```{r level2-destination-marginal-metrics, include=FALSE}
 destination_margins <- validation_build_marginal_tables(
-  adjusted_outputs = v07_method_results,
+  adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
   role = "destination"
 )
@@ -434,9 +433,9 @@ origin_margin_residuals <- validation_residual_results(
 plot_validation_scatter(
   origin_margin_residuals,
   comparisons = "adjusted_vs_benchmark",
-  methods = v07_validation_methods,
+  methods = validation_methods,
   method_labels = validation_plot_method_labels,
-  facet_ncol = 3,
+  facet_ncol = 2,
   point_size = 2.2,
   point_alpha = 0.8,
   sort = "ascending"
@@ -453,9 +452,9 @@ destination_margin_residuals <- validation_residual_results(
 plot_validation_scatter(
   destination_margin_residuals,
   comparisons = "adjusted_vs_benchmark",
-  methods = v07_validation_methods,
+  methods = validation_methods,
   method_labels = validation_plot_method_labels,
-  facet_ncol = 3,
+  facet_ncol = 2,
   point_size = 2.2,
   point_alpha = 0.8,
   sort = "ascending"
@@ -467,13 +466,13 @@ level2_origin_best <- validation_best_method(
   origin_margin_metrics,
   comparison = "adjusted_vs_benchmark",
   metric = "mae",
-  methods = v07_validation_methods
+  methods = validation_methods
 )
 level2_destination_best <- validation_best_method(
   destination_margin_metrics,
   comparison = "adjusted_vs_benchmark",
   metric = "mae",
-  methods = v07_validation_methods
+  methods = validation_methods
 )
 ```
 
@@ -488,12 +487,12 @@ same weight on the two margins.
 
 Level 3 compares individual origin-destination pairs. This is the most granular
 validation level and is the best place to inspect large local errors. This
-section uses the same method set as the rest of the vignette, so the scatter and
-residual-band review line up with the earlier levels.
+section keeps the same four-output comparison set used for the marginal
+diagnostics.
 
 ```{r level3-residual-summary, include=FALSE}
 flow_residuals <- validation_residual_results(
-  adjusted_outputs = v07_method_results,
+  adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
   top_n = 12
 )
@@ -509,9 +508,9 @@ strong colour deserve attention.
 plot_validation_scatter(
   flow_residuals,
   comparisons = "adjusted_vs_benchmark",
-  methods = v07_validation_methods,
+  methods = validation_methods,
   method_labels = validation_plot_method_labels,
-  facet_ncol = 3,
+  facet_ncol = 2,
   point_alpha = 0.55,
   point_size = 1.2,
   sort = "ascending"
@@ -527,7 +526,7 @@ OD-pair errors.
 plot_validation_residual_bands(
   flow_residuals,
   comparisons = "adjusted_vs_benchmark",
-  methods = v07_validation_methods,
+  methods = validation_methods,
   method_labels = validation_plot_method_labels,
   band_method = "sd",
   sd_reference = "adjusted",
@@ -540,7 +539,7 @@ plot_validation_residual_bands(
 
 ```{r level3-inference-values, include=FALSE}
 level3_metrics <- validation_overall_results(
-  adjusted_outputs = v07_method_results,
+  adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
   comparisons = "adjusted_vs_benchmark"
 )
@@ -548,7 +547,7 @@ level3_best <- validation_best_method(
   level3_metrics,
   comparison = "adjusted_vs_benchmark",
   metric = "mae",
-  methods = v07_validation_methods
+  methods = validation_methods
 )
 ```
 
@@ -570,7 +569,7 @@ destinations.
 
 ```{r level4-distribution-summary, include=FALSE}
 distribution_results <- validation_distribution_results(
-  adjusted_outputs = v07_method_results,
+  adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
   comparisons = "adjusted_vs_benchmark"
 )
@@ -588,7 +587,7 @@ plot_validation_distribution_pairwise(
   metric = "jsd",
   value = "weighted_mean",
   comparisons = "adjusted_vs_benchmark",
-  methods = v07_validation_methods,
+  methods = validation_methods,
   method_labels = validation_plot_method_labels,
   plot_type = "comparison",
   sort = "ascending"
@@ -625,8 +624,8 @@ across neighbouring areas? Third, are origin-level residuals associated with a
 known area covariate? In this example, the covariate is the percentage of
 residents with Level 4 qualifications or above (`per_level4`).
 
-This section uses the same seven-method comparison set as the earlier plots.
-The optional Moran's I and LISA diagnostics need neighbour links. The Local
+This section uses the same four-output comparison set as Levels 2 to 4. The
+optional Moran's I and LISA diagnostics need neighbour links. The Local
 Moran statistic itself uses reproducible four-nearest-neighbour links derived
 from the real LAD centroid distances returned by `debiasR_example_data()`.
 The LISA map uses a simplified ONS 2021 LAD boundary file when `sf` and
@@ -647,7 +646,7 @@ validation_lisa_map_note <- validation_lisa_inputs$map_note
 structure_covariates <- covariates_validation |>
   dplyr::select(area, per_level4)
 
-structure_methods <- v07_validation_methods
+structure_methods <- validation_methods
 ```
 
 ```{r level5-neighbor-note, echo=FALSE}
@@ -656,7 +655,7 @@ cat(validation_lisa_inputs$note, "\n")
 
 ```{r level5-residual-structure, include=FALSE}
 residual_structure <- validation_structure_results(
-  adjusted_outputs = v07_method_results,
+  adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
   area_neighbors = structure_neighbors,
   covariate_df = structure_covariates,
@@ -773,6 +772,6 @@ outputs on the same benchmark OD table and the same OD rows.
 
 ```{r method-inputs, echo=FALSE}
 validation_display_method_inputs(
-  methods = v07_validation_methods
+  methods = displayed_methods
 )
 ```

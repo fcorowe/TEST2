@@ -28,9 +28,9 @@
   validation vignette's method-inputs, row-audit, and five-level validation
   reporting. The article now reads these Bayesian rows from the precomputed
   `inst/extdata/` bundle rather than refitting Bayesian models during render,
-  selects one best-performing `coverage_offset` variant for the main five-level
-  walkthrough, and keeps `latent_two_level` validation outputs deferred until a
-  full repeated-source result file exists.
+  uses selected `coverage_offset` variants in the validation walkthrough, and
+  keeps `latent_two_level` validation outputs deferred until a full
+  repeated-source result file exists.
 - Expanded the v07 Bayesian validation output set with two additional
   full-LAD `coverage_offset` coverage-scale sensitivity specifications and one
   full-LAD `reduced_form` sensitivity specification. The validation vignette
@@ -49,9 +49,9 @@
   by `debiasR`.
 - Removed the separate v07 broader-method-comparison section. Level 1 now
   focuses on `adjusted_vs_benchmark`, with unadjusted raw MPD represented once
-  as the raw-baseline method row, and Levels 1-5 use the same method set:
-  unadjusted raw MPD, the five deterministic adjustment methods, and the
-  selected Bayesian `coverage_offset` variant.
+  as the raw-baseline method row. Level 1 uses a broader selected comparison
+  set, while Levels 2-5 focus on inverse penetration, coefficient adjustment,
+  Bayesian gravity plus education, and unadjusted raw MPD.
 - Replaced the validation vignette summary with a recommendation section that
   frames method choice around validation sequence, data availability,
   measurement precision, and time constraints.
@@ -59,8 +59,8 @@
   integrated raw-MPD benchmark comparisons display the unadjusted raw MPD
   baseline only once, pinned to the bottom or right edge. LISA maps and
   pairwise distribution heatmap facets now also honour method sorting.
-- Revised validation scatterplots to use three-column square-panel facet grids
-  and simpler axis labels that name adjusted, benchmark, or raw flows in people.
+- Revised validation scatterplots to use 2x2 square-panel facet grids and
+  simpler axis labels that name adjusted, benchmark, or raw flows in people.
 - Added prototype `plot_validation_*()` functions for validation metric
   matrices, residual violin plots, pairwise flow scatterplots,
   standard-deviation and quantile residual-band stacked bars, distributional
