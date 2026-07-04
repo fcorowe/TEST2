@@ -59,6 +59,14 @@ Validation:
 Testing:
 - Prefer the curated fast deterministic test runner when validating broad changes:
   `Rscript scripts/run_fast_tests.R`
+- The hosted fast deterministic workflow is path-aware. It runs
+  `scripts/run_fast_tests.R` for package-relevant changes under `R/`,
+  `tests/`, `scripts/`, `inst/`, `data/`, `data-raw/`, `man/`, `src/`,
+  `tools/`, or to `DESCRIPTION`, `NAMESPACE`, `.Rbuildignore`,
+  configure/cleanup scripts, and the fast/Bayesian workflow files.
+  Documentation, website-text, and governance-only PRs should let the required
+  fast-tests job pass through its explicit skip step instead of forcing a full
+  package test run; pkgdown still builds website-facing changes.
 - For broader local development checks that should load the package with
   `devtools::load_all()`, use `Rscript scripts/run_dev_tests.R`.
 - For narrow validation changes, targeted `testthat` runs are acceptable before the full fast tier.
