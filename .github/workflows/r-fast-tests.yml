@@ -15,11 +15,97 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Classify fast-test scope
+        id: fast-test-scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            base_sha="${PR_BASE_SHA}"
+            head_sha="${PR_HEAD_SHA}"
+          elif [ "${EVENT_NAME}" = "push" ]; then
+            base_sha="${PUSH_BASE_SHA}"
+            head_sha="${CURRENT_SHA}"
+
+            if [ -z "${base_sha}" ] || [ "${base_sha}" = "0000000000000000000000000000000000000000" ]; then
+              echo "run_fast_tests=true" >> "${GITHUB_OUTPUT}"
+              echo "reason=Initial push or unavailable base SHA; running fast deterministic tests." >> "${GITHUB_OUTPUT}"
+              echo "Fast deterministic tests will run because this push has no comparable base SHA." >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+          else
+            echo "run_fast_tests=true" >> "${GITHUB_OUTPUT}"
+            echo "reason=Unknown event type; running fast deterministic tests." >> "${GITHUB_OUTPUT}"
+            echo "Fast deterministic tests will run because the event type was not recognized." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          if ! git cat-file -e "${base_sha}^{commit}" || ! git cat-file -e "${head_sha}^{commit}"; then
+            echo "run_fast_tests=true" >> "${GITHUB_OUTPUT}"
+            echo "reason=Could not inspect the full changed-file range; running fast deterministic tests." >> "${GITHUB_OUTPUT}"
+            echo "Fast deterministic tests will run because the workflow could not inspect the full changed-file range." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          diff_base_sha="${base_sha}"
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            if ! diff_base_sha="$(git merge-base "${base_sha}" "${head_sha}")"; then
+              echo "run_fast_tests=true" >> "${GITHUB_OUTPUT}"
+              echo "reason=Could not find a merge base for the pull request; running fast deterministic tests." >> "${GITHUB_OUTPUT}"
+              echo "Fast deterministic tests will run because the workflow could not find a pull-request merge base." >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+          fi
+
+          changed_files="$(git diff --name-only "${diff_base_sha}" "${head_sha}")"
+          test_relevant_regex='^(R/|tests/|scripts/|inst/|data/|data-raw/|man/|src/|tools/|DESCRIPTION$|NAMESPACE$|\.Rbuildignore$|configure$|configure\.win$|cleanup$|cleanup\.win$|\.github/workflows/r-fast-tests\.yml$|\.github/workflows/r-bayesian-tests\.yml$)'
+
+          {
+            echo "## Fast deterministic test scope"
+            echo
+            echo "Compared \`${diff_base_sha}\` to \`${head_sha}\`."
+            echo
+            if [ -n "${changed_files}" ]; then
+              echo "Changed files:"
+              while IFS= read -r file; do
+                echo "- \`${file}\`"
+              done <<< "${changed_files}"
+            else
+              echo "No changed files were detected."
+            fi
+            echo
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [ -z "${changed_files}" ]; then
+            echo "run_fast_tests=false" >> "${GITHUB_OUTPUT}"
+            echo "reason=No changed files detected; skipping fast deterministic tests." >> "${GITHUB_OUTPUT}"
+            echo "Fast deterministic tests skipped because no changed files were detected." >> "${GITHUB_STEP_SUMMARY}"
+          elif grep -Eq "${test_relevant_regex}" <<< "${changed_files}"; then
+            echo "run_fast_tests=true" >> "${GITHUB_OUTPUT}"
+            echo "reason=Package-relevant files changed; running fast deterministic tests." >> "${GITHUB_OUTPUT}"
+            echo "Fast deterministic tests will run because package-relevant files changed." >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "run_fast_tests=false" >> "${GITHUB_OUTPUT}"
+            echo "reason=Only documentation, website text, or governance files changed; skipping fast deterministic tests." >> "${GITHUB_OUTPUT}"
+            echo "Fast deterministic tests skipped because only documentation, website text, or governance files changed." >> "${GITHUB_STEP_SUMMARY}"
+          fi
 
       - name: Set up R
+        if: steps.fast-test-scope.outputs.run_fast_tests == 'true'
         uses: r-lib/actions/setup-r@v2
 
       - name: Set up package dependencies
+        if: steps.fast-test-scope.outputs.run_fast_tests == 'true'
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
           dependencies: '"hard"'
@@ -28,4 +114,9 @@ jobs:
             any::testthat
 
       - name: Run fast deterministic tests
+        if: steps.fast-test-scope.outputs.run_fast_tests == 'true'
         run: Rscript scripts/run_fast_tests.R
+
+      - name: Skip fast deterministic tests
+        if: steps.fast-test-scope.outputs.run_fast_tests != 'true'
+        run: echo "${{ steps.fast-test-scope.outputs.reason }}"

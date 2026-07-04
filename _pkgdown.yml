@@ -10,10 +10,30 @@ home:
       maintainers:
         title: Developers
         text: |
-          Francisco Rowe<br>
-          <small class="roles">Author, package maintainer</small><br><br>
-          Carmen Cabrera<br>
-          <small class="roles">Author, project maintainer</small>
+          <ul class="list-unstyled">
+            <li>
+              <a href="http://franciscorowe.com">Francisco Rowe</a><br>
+              <small class="roles">Author, package maintainer</small>
+              <a href="https://orcid.org/0000-0003-4137-0246"
+                 target="orcid.widget" aria-label="ORCID">
+                <span class="fab fa-orcid orcid" aria-hidden="true"></span>
+              </a>
+            </li>
+            <li>
+              <a href="https://c-cabrera.com/">Carmen Cabrera</a><br>
+              <small class="roles">Author, project maintainer</small>
+              <a href="https://orcid.org/0000-0002-2732-6436"
+                 target="orcid.widget" aria-label="ORCID">
+                <span class="fab fa-orcid orcid" aria-hidden="true"></span>
+              </a>
+            </li>
+          </ul>
+
+authors:
+  Francisco Rowe:
+    href: http://franciscorowe.com
+  Carmen Cabrera:
+    href: https://c-cabrera.com/
 
 navbar:
   structure:

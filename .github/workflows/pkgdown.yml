@@ -64,6 +64,7 @@ jobs:
             new_process = FALSE,
             install = TRUE
           )'
+          printf '%s\n' "${GITHUB_SHA}" > site/pkgdown-build-sha.txt
 
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -91,3 +92,103 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  verify-live-site:
+    name: Verify live pkgdown site
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check deployed commit marker
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_url="https://de-bias.github.io/debiasR"
+          marker_url="${base_url}/pkgdown-build-sha.txt?cache-bust=${GITHUB_SHA}"
+          home_url="${base_url}/?cache-bust=${GITHUB_SHA}"
+
+          for attempt in {1..18}; do
+            live_sha="$(curl --fail --silent --show-error --location "${marker_url}" | tr -d '\r\n' || true)"
+
+            if [ "${live_sha}" = "${GITHUB_SHA}" ]; then
+              home_html="$(curl --fail --silent --show-error --location "${home_url}")"
+              grep -q "debiasR" <<< "${home_html}"
+              echo "Live pkgdown site is serving ${GITHUB_SHA}."
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}: live marker '${live_sha:-missing}' did not match ${GITHUB_SHA}; retrying."
+            sleep 10
+          done
+
+          echo "::error title=Live pkgdown site did not update::Expected ${marker_url} to contain ${GITHUB_SHA}."
+          exit 1
+
+  flag-deployment-failure:
+    name: Flag pkgdown deployment failure
+    if: |
+      always() &&
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      (
+        needs.build.result != 'success' ||
+        needs.deploy.result != 'success' ||
+        needs.verify-live-site.result != 'success'
+      )
+    needs: [build, deploy, verify-live-site]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Open or update deployment failure issue
+        uses: actions/github-script@v8
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          VERIFY_RESULT: ${{ needs.verify-live-site.result }}
+        with:
+          script: |
+            const title = "pkgdown site deployment failed on main";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              "The pkgdown GitHub Pages workflow failed or the live site did not verify after a push to `main`.",
+              "",
+              `- Workflow: ${context.workflow}`,
+              `- Run: ${runUrl}`,
+              `- Commit: ${context.sha}`,
+              `- Build result: ${process.env.BUILD_RESULT}`,
+              `- Deploy result: ${process.env.DEPLOY_RESULT}`,
+              `- Live-site verification result: ${process.env.VERIFY_RESULT}`,
+              "",
+              "Please rerun the failed job or inspect the Pages deployment logs. This issue was opened automatically by the pkgdown deployment guardrail."
+            ].join("\n");
+
+            const {owner, repo} = context.repo;
+            const {data: issues} = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: "open",
+              per_page: 100
+            });
+            const existing = issues.find(issue => issue.title === title && !issue.pull_request);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body
+              });
+              core.notice(`Updated existing deployment failure issue #${existing.number}.`);
+            } else {
+              const {data: issue} = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body
+              });
+              core.notice(`Opened deployment failure issue #${issue.number}.`);
+            }

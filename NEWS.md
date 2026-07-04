@@ -1,5 +1,17 @@
 # debiasR 0.0.0.9005
 
+### Repository governance
+
+- Documented the two PR merge routes: the default review route and a
+  Francisco-only maintainer-bypass route for PRs opened by or on behalf of
+  Francisco Rowe when deadlines or reviewer availability require direct merge
+  or squash merge through the PR process.
+- Made the required fast deterministic GitHub Actions workflow path-aware so
+  package-relevant changes still run `scripts/run_fast_tests.R`, while
+  documentation, website-text, and governance-only pull requests pass through
+  an explicit green skip step and leave pkgdown to validate website-facing
+  changes.
+
 ### Adjustment workflows
 
 - Added `adjust_all_methods()` as an exported convenience function for fitting

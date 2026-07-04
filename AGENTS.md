@@ -27,6 +27,18 @@ Git and GitHub controls:
   maintainers and automation agents.
 - Francisco Rowe (`fcorowe`) and Carmen Cabrera (`carmen-cabrera`) can review
   and merge accepted pull requests.
+- PRs have two acceptable merge routes:
+  - Review route: the default route. Wait for an approving review from an
+    eligible reviewer before merging.
+  - Francisco maintainer-bypass route: Francisco Rowe (`fcorowe`) may
+    explicitly request that his own PR, or a PR opened on his behalf, bypass
+    the review wait and be merged or squash-merged directly when deadlines or
+    reviewer availability require it. This exception belongs only to Francisco
+    as the main developer of `debiasR`; do not infer it for other contributors.
+- The maintainer-bypass route still requires a branch, a pull request, a clear
+  statement in the PR body or PR discussion that Francisco requested the
+  bypass, and passing required checks unless Francisco explicitly accepts the
+  remaining risk.
 - If a direct push to `main` appears necessary, stop and ask Francisco to
   approve a PR-based route instead.
 
@@ -47,6 +59,14 @@ Validation:
 Testing:
 - Prefer the curated fast deterministic test runner when validating broad changes:
   `Rscript scripts/run_fast_tests.R`
+- The hosted fast deterministic workflow is path-aware. It runs
+  `scripts/run_fast_tests.R` for package-relevant changes under `R/`,
+  `tests/`, `scripts/`, `inst/`, `data/`, `data-raw/`, `man/`, `src/`,
+  `tools/`, or to `DESCRIPTION`, `NAMESPACE`, `.Rbuildignore`,
+  configure/cleanup scripts, and the fast/Bayesian workflow files.
+  Documentation, website-text, and governance-only PRs should let the required
+  fast-tests job pass through its explicit skip step instead of forcing a full
+  package test run; pkgdown still builds website-facing changes.
 - For broader local development checks that should load the package with
   `devtools::load_all()`, use `Rscript scripts/run_dev_tests.R`.
 - For narrow validation changes, targeted `testthat` runs are acceptable before the full fast tier.
