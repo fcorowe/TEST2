@@ -31,6 +31,15 @@ test_that("backend auto-selection resolves to the expected engine", {
   expect_equal(debiasR:::.resolve_multilevel_backend("zinb", "auto"), "brms")
   expect_equal(debiasR:::.resolve_multilevel_backend("poisson", "brms"), "brms")
   expect_equal(
+    debiasR:::.resolve_multilevel_backend("poisson", "auto", spatial_effect = "origin_bym2"),
+    "inla"
+  )
+  expect_equal(debiasR:::.resolve_multilevel_backend("poisson", "inla"), "inla")
+  expect_error(
+    debiasR:::.resolve_multilevel_backend("poisson", "rstanarm", spatial_effect = "origin_bym2"),
+    "requires `backend = 'inla'`"
+  )
+  expect_equal(
     debiasR:::.resolve_multilevel_backend("poisson", "auto", "latent_two_level"),
     "stan_latent"
   )

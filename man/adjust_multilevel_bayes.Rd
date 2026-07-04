@@ -25,11 +25,18 @@ adjust_multilevel_bayes(
   bias_formula = NULL,
   model_family = c("poisson", "negbin", "zip", "zinb"),
   model_engine = c("bayesian", "frequentist"),
-  backend = c("auto", "rstanarm", "brms", "stan_latent"),
+  backend = c("auto", "rstanarm", "brms", "stan_latent", "inla"),
   flow_adj_summary = c("mean", "median"),
   target_scale = c("mpd_counterfactual", "true_flow"),
   observation_model = c("reduced_form", "coverage_offset", "latent_two_level"),
   coverage_scale = c("origin", "destination", "both"),
+  spatial_effect = c("none", "origin_iid", "destination_iid", "origin_besag",
+    "destination_besag", "origin_bym2", "destination_bym2"),
+  area_neighbors = NULL,
+  area_col = "area",
+  neighbor_col = "neighbor",
+  inla_fixed_effects = c("gravity", "gravity_rural", "gravity_education"),
+  inla_control_compute = list(dic = TRUE, waic = TRUE, cpo = TRUE),
   latent_flow_unit = c("auto", "od", "od_time"),
   latent_coef_prior_scale = 1,
   latent_bias_prior_scale = 0.5,
@@ -134,10 +141,12 @@ faster Poisson/negative-binomial GLM/GLMM scaffold for testing,
 experimentation, and runtime-sensitive comparisons.}
 
 \item{backend}{Bayesian backend: \code{"auto"}, \code{"rstanarm"},
-\code{"brms"}, or \code{"stan_latent"}. \code{"auto"} chooses
+\code{"brms"}, \code{"stan_latent"}, or \code{"inla"}. \code{"auto"} chooses
 \pkg{rstanarm} for Poisson/NegBin reduced-form and coverage-offset models,
 \pkg{brms} for zero-inflated families, and the package's custom Stan
-backend for \code{observation_model = "latent_two_level"}.}
+backend for \code{observation_model = "latent_two_level"}. If
+\code{spatial_effect} is not \code{"none"}, \code{"auto"} chooses the
+optional \pkg{INLA} backend.}
 
 \item{flow_adj_summary}{Summary for posterior draw-level adjusted flows:
 \code{"mean"} or \code{"median"}. This controls how the draw-level
@@ -157,6 +166,27 @@ source/time-specific MPD observation process.}
 \item{coverage_scale}{Coverage rate used by \code{"coverage_offset"}:
 \code{"origin"} uses \eqn{c_i}, \code{"destination"} uses \eqn{c_j}, and
 \code{"both"} uses \eqn{\sqrt{c_i c_j}}.}
+
+\item{spatial_effect}{Optional INLA spatial or exchangeable random effect:
+\code{"none"}, origin/destination IID, Besag, or BYM2. Spatial effects
+require \code{backend = "inla"} or \code{backend = "auto"} and are currently
+supported only for \code{observation_model = "coverage_offset"} with
+\code{target_scale = "true_flow"}.}
+
+\item{area_neighbors}{Optional neighbour table for INLA Besag/BYM2 effects.
+It should contain one row per neighbour link and columns named by
+\code{area_col} and \code{neighbor_col}.}
+
+\item{area_col}{Column in \code{area_neighbors} identifying the focal area.}
+
+\item{neighbor_col}{Column in \code{area_neighbors} identifying the
+neighbouring area.}
+
+\item{inla_fixed_effects}{Friendly fixed-effect preset used by the INLA
+backend when no \code{formula} or \code{mobility_formula} is supplied.}
+
+\item{inla_control_compute}{Optional list passed to INLA
+\code{control.compute}.}
 
 \item{latent_flow_unit}{Latent state used when
 \code{observation_model = "latent_two_level"}. \code{"od"} shares one

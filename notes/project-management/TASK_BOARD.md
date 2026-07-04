@@ -1,6 +1,6 @@
 # Task Board
 
-Last updated: 2026-07-02
+Last updated: 2026-07-04
 
 This board turns the current roadmap into a short execution plan. Estimated effort is in rough person-hours.
 
@@ -43,6 +43,19 @@ The staged track below is intended to be implemented one stage per chat window. 
   diagnostic guardrails.
 
 ## Recently Completed
+
+1. Add experimental INLA backend inside `adjust_multilevel_bayes()` - `complete`
+- Completed on 2026-07-04.
+- Added INLA as an optional Bayesian backend within the existing
+  `adjust_multilevel_bayes()` user interface rather than exposing a separate
+  adjustment function. Users can request `backend = "inla"` directly, while
+  `backend = "auto"` routes to INLA when `spatial_effect` is set.
+- The first INLA path supports `coverage_offset` true-flow models with Poisson
+  or negative-binomial families and origin/destination IID, Besag, or BYM2
+  effects. Besag/BYM2 effects use the existing friendly neighbour-table style.
+- This is implementation scaffolding for spatial specification experiments, not
+  empirical approval evidence. The method recommendation should remain
+  conditional on the held-out validation route.
 
 1. Switch v07 validation to full LAD support and add reproducible LISA maps - `complete`
 - Completed on 2026-07-02.
