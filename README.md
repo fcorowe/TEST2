@@ -53,7 +53,7 @@ Then load the package and follow the walkthroughs in the package documentation o
 the source files in `vignettes/`.
 
 
-## Workflow
+## Framework
 
 ![Three-stage debiasR OD workflow](man/figures/debias-workflow-readme.png)
 
