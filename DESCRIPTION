@@ -29,6 +29,7 @@ Suggests:
     pscl,
     rstan,
     brms,
+    INLA,
     ggplot2,
     ggthemes,
     showtext,
@@ -43,6 +44,8 @@ Suggests:
     testthat (>= 3.2.0)
 Config/testthat/edition: 3
 Config/Needs/website: pkgdown, sf
+Additional_repositories:
+    https://inla.r-inla-download.org/R/stable
 VignetteBuilder: quarto
 LazyData: true
 URL: https://de-bias.github.io/debiasR/, https://github.com/de-bias/debiasR

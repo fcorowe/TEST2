@@ -94,10 +94,12 @@
 #'   faster Poisson/negative-binomial GLM/GLMM scaffold for testing,
 #'   experimentation, and runtime-sensitive comparisons.
 #' @param backend Bayesian backend: \code{"auto"}, \code{"rstanarm"},
-#'   \code{"brms"}, or \code{"stan_latent"}. \code{"auto"} chooses
+#'   \code{"brms"}, \code{"stan_latent"}, or \code{"inla"}. \code{"auto"} chooses
 #'   \pkg{rstanarm} for Poisson/NegBin reduced-form and coverage-offset models,
 #'   \pkg{brms} for zero-inflated families, and the package's custom Stan
-#'   backend for \code{observation_model = "latent_two_level"}.
+#'   backend for \code{observation_model = "latent_two_level"}. If
+#'   \code{spatial_effect} is not \code{"none"}, \code{"auto"} chooses the
+#'   optional \pkg{INLA} backend.
 #' @param flow_adj_summary Summary for posterior draw-level adjusted flows:
 #'   \code{"mean"} or \code{"median"}. This controls how the draw-level
 #'   adjusted flows are collapsed into the returned \code{flow_adj} column.
@@ -113,6 +115,21 @@
 #' @param coverage_scale Coverage rate used by \code{"coverage_offset"}:
 #'   \code{"origin"} uses \eqn{c_i}, \code{"destination"} uses \eqn{c_j}, and
 #'   \code{"both"} uses \eqn{\sqrt{c_i c_j}}.
+#' @param spatial_effect Optional INLA spatial or exchangeable random effect:
+#'   \code{"none"}, origin/destination IID, Besag, or BYM2. Spatial effects
+#'   require \code{backend = "inla"} or \code{backend = "auto"} and are currently
+#'   supported only for \code{observation_model = "coverage_offset"} with
+#'   \code{target_scale = "true_flow"}.
+#' @param area_neighbors Optional neighbour table for INLA Besag/BYM2 effects.
+#'   It should contain one row per neighbour link and columns named by
+#'   \code{area_col} and \code{neighbor_col}.
+#' @param area_col Column in \code{area_neighbors} identifying the focal area.
+#' @param neighbor_col Column in \code{area_neighbors} identifying the
+#'   neighbouring area.
+#' @param inla_fixed_effects Friendly fixed-effect preset used by the INLA
+#'   backend when no \code{formula} or \code{mobility_formula} is supplied.
+#' @param inla_control_compute Optional list passed to INLA
+#'   \code{control.compute}.
 #' @param latent_flow_unit Latent state used when
 #'   \code{observation_model = "latent_two_level"}. \code{"od"} shares one
 #'   latent flow across source/time observations of an OD pair; \code{"od_time"}
@@ -250,11 +267,25 @@ adjust_multilevel_bayes <- function(mpd_od_df,
                                     bias_formula = NULL,
                                     model_family = c("poisson", "negbin", "zip", "zinb"),
                                     model_engine = c("bayesian", "frequentist"),
-                                    backend = c("auto", "rstanarm", "brms", "stan_latent"),
+                                    backend = c("auto", "rstanarm", "brms", "stan_latent", "inla"),
                                     flow_adj_summary = c("mean", "median"),
                                     target_scale = c("mpd_counterfactual", "true_flow"),
                                     observation_model = c("reduced_form", "coverage_offset", "latent_two_level"),
                                     coverage_scale = c("origin", "destination", "both"),
+                                    spatial_effect = c(
+                                      "none",
+                                      "origin_iid",
+                                      "destination_iid",
+                                      "origin_besag",
+                                      "destination_besag",
+                                      "origin_bym2",
+                                      "destination_bym2"
+                                    ),
+                                    area_neighbors = NULL,
+                                    area_col = "area",
+                                    neighbor_col = "neighbor",
+                                    inla_fixed_effects = c("gravity", "gravity_rural", "gravity_education"),
+                                    inla_control_compute = list(dic = TRUE, waic = TRUE, cpo = TRUE),
                                     latent_flow_unit = c("auto", "od", "od_time"),
                                     latent_coef_prior_scale = 1,
                                     latent_bias_prior_scale = 0.5,
@@ -275,12 +306,27 @@ adjust_multilevel_bayes <- function(mpd_od_df,
                                     keep_cols = character()) {
 
   random_intercept_supplied <- !missing(random_intercept)
+  target_scale_supplied <- !missing(target_scale)
+  observation_model_supplied <- !missing(observation_model)
   random_intercept <- match.arg(random_intercept)
   scenario <- match.arg(scenario)
   model_family <- match.arg(model_family)
   model_engine <- match.arg(model_engine)
+  backend <- match.arg(backend)
   repeated_observation <- match.arg(repeated_observation)
   flow_adj_summary <- match.arg(flow_adj_summary)
+  spatial_effect <- match.arg(spatial_effect)
+  inla_fixed_effects <- match.arg(inla_fixed_effects)
+  inla_requested <- identical(backend, "inla") ||
+    (identical(backend, "auto") && !identical(spatial_effect, "none"))
+  if (isTRUE(inla_requested)) {
+    if (!isTRUE(target_scale_supplied)) {
+      target_scale <- "true_flow"
+    }
+    if (!isTRUE(observation_model_supplied)) {
+      observation_model <- "coverage_offset"
+    }
+  }
   target_scale <- match.arg(target_scale)
   observation_model <- match.arg(observation_model)
   coverage_scale <- match.arg(coverage_scale)
@@ -335,8 +381,46 @@ adjust_multilevel_bayes <- function(mpd_od_df,
   backend <- .resolve_multilevel_backend(
     model_family = model_family,
     backend = backend,
-    observation_model = observation_model
+    observation_model = observation_model,
+    spatial_effect = spatial_effect
   )
+
+  if (identical(backend, "inla")) {
+    if (!identical(observation_model, "coverage_offset") ||
+        !identical(target_scale, "true_flow")) {
+      stop(
+        "`backend = 'inla'` currently supports only ",
+        "`observation_model = 'coverage_offset'` with ",
+        "`target_scale = 'true_flow'`."
+      )
+    }
+    return(.adjust_multilevel_inla(
+      mpd_od_df = mpd_od_df,
+      coverage_df = coverage_df,
+      covariates_df = covariates_df,
+      distance_df = distance_df,
+      flow_col = flow_col,
+      income_col = income_col,
+      pop_col = pop_col,
+      distance_col = distance_col,
+      source_col = source_col,
+      time_col = time_col,
+      scenario = scenario,
+      repeated_observation = repeated_observation,
+      formula_info = formula_info,
+      fixed_effects = inla_fixed_effects,
+      model_family = model_family,
+      coverage_scale = coverage_scale,
+      spatial_effect = spatial_effect,
+      area_neighbors = area_neighbors,
+      area_col = area_col,
+      neighbor_col = neighbor_col,
+      prediction_scope = prediction_scope,
+      flow_adj_summary = flow_adj_summary,
+      control_compute = inla_control_compute,
+      keep_cols = keep_cols
+    ))
+  }
 
   scenario_info <- .resolve_multilevel_scenario(
     mpd_od_df = mpd_od_df,
@@ -2917,8 +3001,9 @@ adjust_multilevel_bayes <- function(mpd_od_df,
 
 .resolve_multilevel_backend <- function(model_family,
                                         backend,
-                                        observation_model = "reduced_form") {
-  backend <- match.arg(backend, choices = c("auto", "rstanarm", "brms", "stan_latent"))
+                                        observation_model = "reduced_form",
+                                        spatial_effect = "none") {
+  backend <- match.arg(backend, choices = c("auto", "rstanarm", "brms", "stan_latent", "inla"))
 
   if (identical(observation_model, "latent_two_level")) {
     if (!model_family %in% c("poisson", "negbin")) {
@@ -2934,11 +3019,26 @@ adjust_multilevel_bayes <- function(mpd_od_df,
       stop(
         "`observation_model = 'latent_two_level'` requires ",
         "`backend = 'stan_latent'` or `backend = 'auto'`. ",
-        "The `rstanarm` and `brms` backends fit reduced-form models and do not ",
+        "The `rstanarm`, `brms`, and `inla` backends fit reduced-form or ",
+        "coverage-offset models and do not ",
         "estimate explicit latent true-flow states."
       )
     }
     return(backend)
+  }
+
+  if (!identical(spatial_effect, "none")) {
+    if (identical(backend, "auto")) {
+      backend <- "inla"
+    } else if (!identical(backend, "inla")) {
+      stop(
+        "`spatial_effect` requires `backend = 'inla'` or `backend = 'auto'`."
+      )
+    }
+  }
+
+  if (identical(backend, "inla") && !model_family %in% c("poisson", "negbin")) {
+    stop("`backend = 'inla'` currently supports Poisson and negative-binomial count families.")
   }
 
   if (backend == "auto") {

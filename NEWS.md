@@ -76,6 +76,14 @@
 
 ### Bayesian adjustment documentation
 
+- Added an experimental optional INLA backend inside `adjust_multilevel_bayes()`
+  rather than as a separate public adjustment function. Users can call
+  `backend = "inla"` for fast Laplace-approximation coverage-offset
+  specifications, or set `spatial_effect` to route `backend = "auto"` to INLA.
+  The first INLA path supports Poisson and negative-binomial `coverage_offset`
+  true-flow models with origin/destination IID, Besag, or BYM2 effects through
+  an optional neighbour table. INLA remains a specification and spatial
+  experiment backend until held-out validation evidence is added.
 - Expanded the adjustment vignette advanced section so it is the practical
   user-facing guide to `adjust_multilevel_bayes()`, including the default
   coverage-offset true-flow model, the role of active-user coverage as a fixed

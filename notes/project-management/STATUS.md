@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-07-02
+Last updated: 2026-07-04
 
 ## Snapshot
 
@@ -43,6 +43,11 @@ Last updated: 2026-07-02
     Bayesian implementation for observed-flow LAD empirical workflows after
     full S4 validation with real LAD centroid distances, acceptable diagnostics,
     and competitive benchmark validation metrics
+  - `backend = "inla"` is now an experimental optional backend within
+    `adjust_multilevel_bayes()` for fast coverage-offset and spatial
+    specification experiments; it is not a separate public adjustment function
+    and should be treated as unapproved until held-out validation evidence is
+    added
   - `observation_model = "reduced_form"` remains a compatibility and
     sensitivity model variant rather than the recommended Bayesian implementation
   - local source/time flow data for empirical S1-S4 testing are available
@@ -75,6 +80,11 @@ Last updated: 2026-07-02
 
 ## What Changed Recently
 
+- `adjust_multilevel_bayes()` now includes an experimental optional INLA
+  backend for `coverage_offset` true-flow models. The user interface keeps INLA
+  inside the existing Bayesian function via `backend = "inla"` or automatic
+  routing from `spatial_effect`, with origin/destination IID, Besag, and BYM2
+  spatial-effect options for specification experiments.
 - The validation vignette now uses the full overlapping LAD support from
   `debiasRdata` for live validation examples rather than a 25-area teaching
   subset. The current LAD example contains 313 LADs and 97,969 OD rows, and
