@@ -10,7 +10,10 @@ Project scope:
 - The repository is public on GitHub as of 2026-06-04. Treat tracked files,
   docs, vignettes, workflows, issues, and pull requests as public-facing.
 - Stable deterministic helpers use the `adjust_*` and `validate_flow_*` naming pattern.
-- `adjust_multilevel_bayes()` is an experimental stage-1 prototype unless the task board says otherwise.
+- `adjust_multilevel_bayes()` is the main Bayesian path. The default
+  `coverage_offset` model variant is approved for observed-flow LAD S1-S4
+  workflows; `latent_two_level` is an approved advanced observed-row
+  repeated-source S3/S4 variant with diagnostic guardrails.
 
 Before substantial work:
 - Read `notes/project-management/TASK_BOARD.md` and `notes/project-management/STATUS.md`.
@@ -44,7 +47,13 @@ Validation:
 Testing:
 - Prefer the curated fast deterministic test runner when validating broad changes:
   `Rscript scripts/run_fast_tests.R`
+- For broader local development checks that should load the package with
+  `devtools::load_all()`, use `Rscript scripts/run_dev_tests.R`.
 - For narrow validation changes, targeted `testthat` runs are acceptable before the full fast tier.
+- Optional Bayesian checks use `Rscript scripts/run_bayesian_tests.R <scope>`.
+  Local scopes include `smoke`, `rstanarm-smoke`, `rstanarm`,
+  `latent-smoke`, `latent-stress`, and `all`; the manual GitHub Actions
+  Bayesian workflow exposes `smoke`, `latent-stress`, and `all`.
 
 Documentation:
 - Keep README, NEWS, status notes, and task board synchronized when user-facing scope changes.
@@ -75,6 +84,23 @@ Documentation:
 - When a vignette claims to illustrate empirical use, use the relevant real
   `debiasRdata` or `debiasR_example_data()` route rather than simulated
   examples, unless the vignette is explicitly about simulation.
+- The validation vignette (`v07`) uses full LAD empirical support from
+  `debiasR_example_data(n_areas = Inf, complete_grid = TRUE, geography = "lad")`
+  for live deterministic examples. Keep full-LAD Bayesian fitting out of the
+  live render unless explicitly requested.
+- For v07 Local Moran/LISA maps, use deterministic nearest-neighbour LAD links
+  from real LAD centroid distances. Boundary polygons should come from the
+  cached public ONS 2021 LAD BFC download or a user-supplied
+  `DEBIAS_LAD_BOUNDARY_PATH`; do not depend on private `/Volumes/DEBIAS`
+  boundary files.
+- Regenerate precomputed Bayesian vignette artifacts only when relevant:
+  `Rscript scripts/precompute_v06_bayesian_example.R`,
+  `Rscript scripts/precompute_v07_validation_bayesian_example.R`, and then
+  `Rscript scripts/precompute_v09_bayesian_real_data_summary.R` when v09 needs
+  the derived real-data evidence tables.
+- Fold exported `plot_validation_*()` examples into the existing validation
+  vignette. Keep `notes/project-management/VALIDATION_VISUAL_PROTOTYPES.qmd`
+  as internal design/review material.
 - Do not treat older migration notes as the current source of truth when `STATUS.md` or `TASK_BOARD.md` disagree.
 - When asked to preview vignettes, default to a pkgdown-style preview rather than
   standalone `quarto preview` output. Build the site to a temporary directory

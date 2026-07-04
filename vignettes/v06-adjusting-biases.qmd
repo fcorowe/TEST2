@@ -30,44 +30,43 @@ This vignette describes how each adjustment method works, associated
 functions and parameters, and how to implement it. The vignette focuses
 on how to implement the various functions using an small sample of the
 dataset introduced in the [Getting set up](v03-getting-set-up.html).
-This means that the results do not reflect the real performance of the
-methods. The next [Validation](v07-validation.html) vignette illustrates
-the comparative performance of the various methods. All the methods in
-`debiasR` use mobile-phone-derived flows as input data and return an
-adjusted flow `flow_adj`.
+Since we are using a small sample of the dataset, the results in this
+vignette do not reflect the real performance of the methods. The next
+[Validation](v07-validation.html) vignette illustrates the comparative
+performance of the various methods. All the adjustment methods in
+`debiasR` use mobile-phone-derived aggregated flows as input data and
+return adjusted flows `flow_adj`.
 
-However, the methods also differ in fundamental ways, in terms of data
-input requirements, how they derive adjustment weights and the extent
-they can adjust biases in the data. These differences are described in
-more detail below. *A key difference* is that most existing approaches
-are trained on a target benchmark set of flows. The DEBIAS Bayesian
-approach does not impose this constraint as input data and this is its
-biggest advantage. The lack of timely and granular benchmark flow data
-from traditional data systems is normally the primary reason to use
-flows from digital sources. Hence, methods relying on target benchmark
-data are of limited use in live scenarios of emergency, humanitarian or
-anticipatory action response.
+The adjustment methods introduced here differ in fundamental ways, in
+terms of data input requirements, how they derive adjustment weights and
+the extent they can adjust biases in the data. These differences are
+described in more detail below.
 
-As discussed below, the practical choice of which methods to use should
-be guided by what data are available and validation against a credible
-benchmark.
+::: key-point-box
+While most existing flow adjustment approaches are trained on a target
+benchmark set of flows, the DEBIAS Bayesian approach does not impose
+this constraint. This is its biggest advantage, as the lack of timely
+and granular benchmark flow data from traditional data systems is
+normally the primary reason to use flows from digital sources.
+:::
+
+Hence, methods relying on target benchmark data are of limited use in
+live scenarios of emergency, humanitarian or anticipatory action
+response. But ultimately, as discussed below, the practical choice of
+which methods to use should be guided by what data are available and
+validation against a credible benchmark.
 
 ## Intuition
 
 Let us quickly recall the challenge we face when working with
-mobile-phone-derived mobility flows. These flows are typically represent
-an small proportion of the resident population, hence we end up
-under-counting these populations. Though, we can also over-count
-populations if individuals have multiple mobile devices and they are
-recorded in the data. So the idea of the methods included in `debiasR`
-is to adjust these counts to make these counts more representative of
-the actual observed flow. Formally, let $F^{mpd}_{ij}$ denote the
+mobile-phone-derived mobility flows. These flows typically capture movements associated with a small sample of the resident population, which may not be representative of the underlying population. The idea of the adjustment methods included in `debiasR`
+is to adjust the volume of the observed flows to make them more representative of
+the benchmark flows, which we consider as the ground truth. Formally, let $F^{mpd}_{ij}$ denote the
 observed mobile-phone-derived flow from origin $i$ to destination $j$,
-and let $F^{adj}_{ij}$ denote the adjusted flow. If a method treats the
-observed MPD flow as under-counted, it increases $F^{adj}_{ij}$. If it
-treats the observed MPD flow as over-counted, it reduces $F^{adj}_{ij}$.
+and let $F^{adj}_{ij}$ denote the adjusted flow. If the
+observed MPD flow was under-counted with respect to the benchmark flow, a good adjustment methods, would increase $F^{adj}_{ij}$ with respect to $F^{mpd}_{ij}$, to make it more similar to the benchmark flow. If the observed MPD flow was over-counted, the adjustment method would reduce $F^{adj}_{ij}$.
 
-Where, let us recall:
+Let us recall the notation:
 
 | Symbol           | Description                                             |
 |:-----------------------------------|:-----------------------------------|
@@ -81,12 +80,12 @@ Where, let us recall:
 | $d_{ij}$         | Distance between origin $i$ and destination $j$.        |
 | $X_i, X_j$       | Origin and destination covariates, such as rural share. |
 
-## Methods in `debiasR`
+## List of flow adjustment methods in `debiasR`
 
 This vignette covers the six bias adjustment methods currently available
 in `debiasR`. The table below illustrates how they map onto `debiasR`
 functions and relevant references that have inspire our thinking. Below
-we explain how each of these methods adjust biases and how you can
+we explain how each of these methods adjusts biases and how you can
 implement them via `debiasR`.
 
 | Method | Function | Reference |
@@ -105,10 +104,9 @@ example introduced in earlier vignettes. The observed origin-destination
 flow data comes from Locomizer-derived mobile phone data and the
 benchmark origin-destination flows from the 2021 UK Census. The data are
 provided through the `debiasRdata` companion package and described in
-more detail in the Data vignette.
+more detail in [Getting set up](v03-getting-set-up.html).
 
-The README shows how to install `debiasR` and`debiasRdata` package from
-GitHub. We start by loading those packages.
+We start by loading the necessary packages:
 
 ```{r load-packages}
 library(debiasR)
@@ -116,25 +114,7 @@ library(debiasRdata)
 library(dplyr)
 ```
 
-```{r load-adjustment-helpers, include=FALSE}
-helper_candidates <- c(
-  "vignettes/_common.R",
-  "_common.R",
-  "../vignettes/_common.R",
-  "../../vignettes/_common.R"
-)
-helper_file <- helper_candidates[file.exists(helper_candidates)][1]
-if (is.na(helper_file)) {
-  stop(
-    "Could not find vignettes/_common.R. ",
-    "Set the working directory to the debiasR package root or vignettes folder."
-  )
-}
-source(helper_file)
-```
-
-First, we identify the main LAD data objects directly from
-`debiasRdata`.
+We then identify the main data objects from `debiasRdata`.
 
 ```{r}
 OD_travel2work <- debiasRdata::lad_OD_travel2work
@@ -151,10 +131,10 @@ head(census_OD_travel2work)
 head(coverage)
 ```
 
-For the adjustment examples, we use `debiasR_example_data()` to
-prepare a compact, aligned version of these data. It creates the
-complete-grid OD structure and distance table used by some methods
-below, which keeps the focus on how the `debiasR` functions work.
+For the adjustment examples, we use `debiasR_example_data()` to prepare
+a compact, aligned version of these data. It creates the complete-grid
+OD structure and distance table used by some adjustment methods below, which keeps
+the focus on how the `debiasR` functions work.
 
 ```{r load-adjustment-data}
 example_data <- debiasR_example_data(
@@ -172,12 +152,9 @@ distance <- example_data$distance
 We structure the outputs in a standard format so they are easier to
 interpret and compare:
 
-- `flow_mpd_raw`: column reporting raw, unadjusted MPD flows used as
-  input.
-- `flow_mpd_adjusted`: column reporting adjusted MPD-derived estimates
-  returned by the adjustment method.
-- `flow_benchmark`: column reporting observed Census benchmark flows
-  used as a validation and input by some deterministic methods.
+-   `flow_mpd_raw`: column reporting raw, unadjusted MPD flows used as input.
+-   `flow_mpd_adjusted`: column reporting adjusted MPD-derived estimates returned by the adjustment method.
+-   `flow_benchmark`: column reporting observed Census benchmark flows used as validation and as input by some of the adjustment methods.
 
 ```{r}
 benchmark_flow_lookup <- benchmark_od |>
@@ -207,7 +184,9 @@ show_adjustment_comparison <- function(adjusted_df,
 }
 ```
 
-## Inverse penetration rate
+## Adjustment methods
+
+### Inverse penetration rate
 
 The inverse penetration rate adjusts origin-destination flows by scaling
 observed mobile-phone-derived flows according to how well the population
@@ -243,7 +222,7 @@ $$F^{adj}_{ij} = w_j F^{mpd}_{ij}$$
 
 $$F^{adj}_{ij} = \sqrt{w_iw_j}F^{mpd}_{ij}$$
 
-### Implementation
+#### Implementation
 
 To use `adjust_inverse_penetration()`, we input our observed
 mobile-phone-derived origin-destination flows via `mpd_od_df` and
@@ -291,7 +270,7 @@ non-users, or if the relationship between coverage and mobility varies
 across places, this method may reduce undercounting while still leaving
 important selection bias in the adjusted flows.
 
-## Selection rate
+### Selection rate
 
 Selection rate adjusts origin-destination flows by allowing the
 adjustment weight to depend on both population coverage and a covariate
@@ -324,7 +303,7 @@ where $I_i$ and $I_j$ are covariate values; $r_t$ is the selection-rate
 parameter; and, $w_{ij}$ is the origin, destination or both-side
 correction.
 
-### Implementation
+#### Implementation
 
 To use `adjust_selection_rate()`, we again input the observed MPD
 origin-destination flows through `mpd_od_df` and the population coverage
@@ -337,7 +316,9 @@ users to specify `benchmark_od_df` for a meaningful selection-rate
 adjustment. This data frame corresponds to a benchmark OD table used to
 calibrate the selection rate parameter `r` in the equations above.
 
-::: {.callout-note title="What about if you do not have benchmark flow?"}
+::: key-point-box
+**What about if you do not have benchmark flow?**
+
 `adjust_selection_rate()` has two no-benchmark routes:
 
 (1) you can provide `r_global` directly based on prior evidence,
@@ -403,7 +384,7 @@ coverage or selection bias. The `weight_missing` column in the
 missing and/or invalid, this leads to missing and/or invalid weight
 inputs.
 
-## Selection rate II
+### Selection rate II
 
 Selection rate II adjusts origin-destination flows by applying a compact
 coverage correction controlled by a single curvature parameter, $k$. The
@@ -432,7 +413,7 @@ $$F^{adj}_{ij} = F^{mpd}_{ij}CF(c; k)$$
 The same correction can be applied by origin, destination or both,
 depending on `weight_by`.
 
-### Implementation
+#### Implementation
 
 To use `adjust_selection_rate2()`, the function requires MPD flows and
 coverage data as inputs. Input the observed MPD flows to `mpd_od_df` and
@@ -468,7 +449,7 @@ and a compact correction is adequate. Its main limitation is that one
 parameter may be too simple when selection bias varies strongly across
 places or population groups, and no benchmark data exist.
 
-## Raking ratio
+### Raking ratio
 
 Raking ratio is also known as iterative proportional fitting (IPF).
 Raking ratio adjusts origin-destination flows by iteratively rescaling
@@ -489,7 +470,7 @@ $$\sum_j F^{adj}_{ij} = O_i^{bench},
 where $O_i^{bench}$ and $D_j^{bench}$ are benchmark outflow and inflow
 totals.
 
-### Implementation
+#### Implementation
 
 To use `adjust_raking_ratio()`, the function requires MDP flows and set
 of constraints as inputs. Feed the observed MPD flows to `mpd_od_df` and
@@ -531,7 +512,7 @@ margins does not guarantee that the internal allocation between specific
 origin-destination pairs is correct, so it should still be validated at
 the OD-pair level.
 
-## Coefficient regression modelling
+### Coefficient regression modelling
 
 Coefficient regression modelling adjusts origin-destination flows by
 learning a direct empirical relationship between observed MPD flows and
@@ -559,17 +540,17 @@ $$\mu_{ij} = e^{\alpha}F^{mpd}_{ij},
 \qquad
 \beta = e^{\alpha}$$
 
-### Implementation
+#### Implementation
 
-To use `adjust_coefficient()`, the essential input requirements
-are the MPD and benchmark flows. Input the observed MPD flows to
-`mpd_od_df` and benchmark OD flows to `benchmark_od_df`. The
-`model_family` argument controls the regression family used to learn the
-MPD-to-benchmark relationship. This example uses `"ols"` for a simple
-proportional calibration. The `level` argument controls whether the
-coefficient is estimated at the OD, origin or destination level.
-Additional options, such as `fit_intercept` and `by_source`, let users
-decide whether to estimate an intercept or source-specific coefficients.
+To use `adjust_coefficient()`, the essential input requirements are the
+MPD and benchmark flows. Input the observed MPD flows to `mpd_od_df` and
+benchmark OD flows to `benchmark_od_df`. The `model_family` argument
+controls the regression family used to learn the MPD-to-benchmark
+relationship. This example uses `"ols"` for a simple proportional
+calibration. The `level` argument controls whether the coefficient is
+estimated at the OD, origin or destination level. Additional options,
+such as `fit_intercept` and `by_source`, let users decide whether to
+estimate an intercept or source-specific coefficients.
 
 ```{r}
 adj_coefficient <- adjust_coefficient(
@@ -594,260 +575,115 @@ representativeness bias. A simple coefficient can miss local
 heterogeneity unless the chosen model family and estimation level
 capture the relevant structure.
 
-## Bayesian multilevel modelling
+
+
+### Bayesian multilevel modelling
 
 Bayesian multilevel modelling in `debiasR` is a flexible modelling
-framework comprising three observation-model variants. The function
-`adjust_multilevel_bayes()` fits structured count models to observed MPD
-flows. The meaning of the adjusted flow depends on the selected model
-variant.
+framework. In simple terms, the model addresses the following question: given the observed MPD flow and the level of population coverage, what underlying flow is likely to have produced that observation? If sufficient information is available about the characteristics of the locations, the model can also use patterns shared across origins, destinations and OD pairs to improve the estimates.
 
-This section focuses on the default coverage-offset model variant. In
-this model, the observed MPD flow is treated as a coverage-scaled
-observation of an underlying true flow. It adjusts origin-destination
-flows by fitting a structured count model to the observed MPD flows and
-estimating the underlying true-flow scale. Active-user coverage enters
-the model as a fixed observation offset, so the fitted model asks: what
-true OD flow would have generated the MPD count we observed, given the
-measured coverage? The multilevel structure can borrow information
-across origins, destinations and corridors when those data structures
-are available.
+::: key-point-box
+**Important!** The Bayesian models are designed for data-scarce settings where benchmark OD flows are unavailable for adjustment, as often occurs during natural hazards, armed conflict or health emergencies. Unlike all the other adjustment methods introduced in this vignette, the Bayesian method can estimate adjusted flows without benchmark flow data and quantify the uncertainty of those estimates. If benchmark flows are available, they can still be used for external validation.
 
-The function provides three observation-model variants developed within
-the DEBIAS project: `coverage_offset`, `latent_two_level` and
-`reduced_form`. It also provides a frequentist option for checking
-formulas, covariates and source/time structures before running the
-Bayesian fit. This vignette explains the model variants intuitively,
-then implements only the coverage-offset Bayesian model
-variant. The [advanced Bayesian adjustment
-vignette](v09-advanced-bayesian-adjustment.html) explains the remaining
-model variants and wider set of parameters in more detail.
-
-The code below shows the model call and the main returned columns for the
-coverage-offset specification. The function also provides a frequentist
-option, `model_engine = "frequentist"`. Use this option to test different
-model specifications, covariates, source/time structures, random effects
-and distributional families before Bayesian sampling. It is useful for
-specification checks and method comparison, but it does not replace the
-Bayesian fit because it does not provide posterior uncertainty. For
-applied Bayesian analysis, run enough iterations and chains for your data
-and check the sampler diagnostics before interpreting posterior
-summaries.
-
-::: {.callout-tip title="How to make the Bayesian comparison fair"}
-The proposed Bayesian models should not be assessed only as an in-sample
-alternative to methods that rely on benchmark OD flows during fitting.
-Raking ratio and coefficient regression can perform very well when the
-validation benchmark is also part of the adjustment information, and
-provide deterministic flow estimates ignoring their uncertainty.
-However, benchmark flow data are rarely available when natural hazards,
-armed conflict or health emergencies strike, and flow estimates from
-these methods are imprecise. Yet lack of uncertainty measures prevent
-from evaluating the extent of their precision.
-
-The proposed Bayesian variants are specifically designed to be deployed
-in these contexts. They do not require benchmark flow data for training
-and enable measuring the uncertainty of estimates. They fit MPD flows,
-active-user coverage, covariates and distance. Benchmark OD flows can be
-used for external validation but, again, not required for training. The
-performance of the Bayesian variants should not only be assessed on
-better error performance over benchmark-calibrated methods. Additional
-dimensions of assessment are needed, such as model convergence, flow
-estimate improvement over raw MPD flows, measures of uncertainty and
-flexibility to accommodate multiple MPD data structures from different
-sources, time granularity and frequency.
+Therefore, the performance of Bayesian models should not only be assessed on better error performance over benchmark-calibrated methods, but also by considering the provision of uncertainty estimates and flexibility across data sources and time periods.
 :::
 
-A practical guide:
+The models are implemented via the function `adjust_multilevel_bayes()` which enables three model variants and four input data scenarios (S1-S4). Detailed information about model variants and input data scenarios is provided in the [advanced Bayesian adjustment vignette](v09-advanced-bayesian-adjustment.html). The function also supports `model_engine = "frequentist"`, which can help users explore model specifications, covariates, random effects and differences across data sources or time periods before running the more computationally demanding Bayesian models. A practical guide to the `adjust_multilevel_bayes()` variants is provided in the table below:
 
 ```{r echo=FALSE}
 bayesian_option_guide <- tibble::tribble(
-  ~`Model variant`, ~`Use it when`, ~`Returned scale`, ~`Intuition`,
-  "`observation_model = \"coverage_offset\"`",
+  ~`Model variant`, ~`Use it when`, ~`Intuition`,
+  "`observation_model= \"coverage_offset\"`",
   "Estimate real population flows from phone counts, accounting for how well each area is represented in the mobile-phone data.",
-  "True-flow scale",
-  "The model estimates Census-scale true flows while treating source/time coverage as a fixed observation offset.",
-  "`observation_model = \"reduced_form\"`",
-  "Adjust the observed phone counts directly, instead of using coverage rates to estimate how many people those phone counts represent.",
-  "MPD-scale counterfactual",
-  "The model fits observed MPD flows directly and predicts a counterfactual MPD flow with the fitted bias term set to zero.",
-  "`observation_model = \"latent_two_level\"`",
+  "The model estimates true flows while treating source/time coverage as a fixed observation offset.",
+  "`observation_model= \"reduced_form\"`",
+  "Adjust the observed phone counts without using coverage rates to estimate how many people those phone counts represent.",
+  "The model fits observed MPD flows directly and predicts a counterfactual MPD flow with the coverage bias term set to zero.",
+  "`observation_model= \"latent_two_level\"`",
   "Estimate shared population flows when the same OD pairs are observed more than once, such as across different data sources or time periods.",
-  "Latent true-flow scale",
-  "The model estimates source-invariant latent OD or OD-time true-flow states and treats observed source/time rows as noisy coverage-scaled measurements.",
-  "`model_engine = \"frequentist\"`",
+  "The model estimates source-invariant latent OD or OD-time true-flow states and treats observed source/time rows as noisy measurements.",
+  "`model_engine= \"frequentist\"`",
   "Run the frequentist option to check that the data, formulas and assumptions work before running the full Bayesian model.",
-  "Frequentist option",
   "This option uses the same non-latent input structure for rapid specification checks and method comparison."
 )
 
 knitr::kable(bayesian_option_guide)
 ```
 
-For routine adjustment, the practical default is:
 
-| Target            | Recommended setting                     |
-|:------------------|:----------------------------------------|
-| Adjustment scale  | `target_scale = "true_flow"`            |
-| Observation model | `observation_model = "coverage_offset"` |
-| Coverage offset   | `coverage_scale = "origin"`             |
+In this section, we focus on illustrating the default model with variant `coverage-offset` and the input data scenario S1, which relies on a single source of MPD data and a single time period.  The coverage-offset model has two components: an **MPD observation model** and a **true-flow model**. The observation model describes how an underlying population flow becomes partially visible in the MPD data. The true-flow model estimates the population mobility pattern behind the observed MPD counts.
 
-DEBIAS' Bayesian approach is a structured count multilevel model. The
-default model option is the coverage-offset model variant. It can be
-understood as two linked parts: an **MPD observation model** and a
-**true-flow model**. The observation model describes why the MPD count
-is only a partial view of mobility, reflecting that only a fraction of
-the population appears in the MPD data. The true-flow model describes
-the underlying population mobility pattern we want to estimate. This is
-the part that can be specified in a multilevel structure to borrow
-information across origins, destinations, OD corridors, sources or time
-periods. DEBIAS offers two other model variants `reduced_form` and
-`latent_two_level`. They use different observation structures and are
-explained in the advanced Bayesian vignette.
+***Component 1: MPD observation model.*** The MPD observation model describes how an underlying population flow becomes partially visible in the MPD data:
 
-*Equation 1: MPD observation model.*
+$$
+F^{mpd}_{ij}
+\sim
+\operatorname{Poisson}
+\left(q_{ij}\lambda^{true}_{ij}\right)
+$$
 
-$$F^{mpd}_{ij} \sim \text{Poisson}(q_{ij} F^{true}_{ij})$$
+Here, $F^{mpd}_{ij}$ is the observed MPD flow from origin $i$ to
+destination $j$. The term $\lambda^{true}_{ij}$ is the expected
+underlying population flow for the same OD pair. We use
+$\lambda^{true}_{ij}$ rather than $F^{true}_{ij}$ because this is the expected rather than observed true flow, which may not be a whole number. The term $q_{ij}$ is the proportion of the underlying flow expected to
+be visible in the MPD data. Here, we use the Poisson distribution, as it allows the observed count
+to vary around its expected value rather than assuming that it must
+equal that value exactly. If the data show greater variation or more
+zero flows, `adjust_multilevel_bayes()` also supports negative binomial,
+zero-inflated Poisson and zero-inflated negative binomial models. The expected observed MPD flow is therefore: $E[F^{mpd}_{ij}] = q_{ij}\lambda^{true}_{ij}$, or taking logarithms for a linearised form:
 
-$$\log E(F^{mpd}_{ij}) = \log(q_{ij}) + \eta^{true}_{ij}$$
+$$
+\log( E\left[F^{mpd}_{ij}\right])
+=
+\log(q_{ij})+\eta^{true}_{ij}
+$$
 
-where $F^{mpd}{ij}$ is the observed MPD flow from origin $i$ to
-destination $j$, and $q{ij}$ is the observation probability derived from
-active-user coverage. With coverage_scale = "origin",
-$q_{ij} = c_i = U_i/P_i$. The term $\log(q_{ij})$ enters as an offset.
-This means coverage is treated as known information about the
-observation process. It is a parameter to be estimated. Intuitively, if
-active-user coverage in an origin is 20%, we do not expect the MPD data
-to observe all trips from that origin. Before allowing for random count
-variation, the MPD count is expected to be about one fifth of the
-underlying population flow. The offset tells the model how much of the
-true flow the MPD system is expected to see.
+where $\lambda^{true}_{ij} = \exp(\eta^{true}_{ij})$. The coverage rate $q_{ij}$ is supplied as known information about the observation process. It tells the model what proportion of the underlying flow the MPD system is expected to observe. Then, for example, if the expected underlying population flow is 500 and $q_{ij}=0.20$, the model expects to observe approximately $0.20\times500=100$ movements in the MPD data. When fitting the model, the reasoning works in the opposite direction, as the observed MPD count and the coverage rate are used to estimate the underlying true population flow that could plausibly have produced that observation.
 
-*Equation 2: True-flow model.*
+In `adjust_multilevel_bayes()`, the `coverage_scale` argument determines how $q_{ij}$ is calculated. If `coverage_scale = "origin"`, then $q_{ij}=c_i=U_i/P_i$, where $U_i$ is the observed active-user count and $P_i$ is the benchmark population in the origin area. In this case, all flows leaving the same origin use that origin's coverage rate. Other options are `coverage_scale = "destination"` ($q_{ij} = c_j$) and `coverage_scale = "both"` ($q_{ij} = \sqrt{c_i c_j}$).
 
-$$\eta^{true}_{ij}
-= \alpha + \beta_o X_i + \beta_d X_j + \gamma \log d_{ij}
-+ u_i + v_j + w_{ij} + \xi_{ij}$$
+***Component 2: True-flow model.*** The second component estimates the expected underlying population flow for each OD pair. We model $\eta^{true}_{ij}$, i.e. the log of the expected flow, as
 
-where $X_i$ and $X_j$ are origin and destination covariates, $d_{ij}$ is
-the origin-destination distance, and $u_i$, $v_j$ and $w_{ij}$ capture
-origin, destination and origin-destination structure. The true-flow
-model seeks to capture the mobility patterns behind the observed MPD
-counts. Flows may also share persistent structure. They may be higher
-from some types of origins, lower to some types of destinations, and
-lower over longer distances.
+$$
+\eta^{true}_{ij}
+=
+\alpha
++ \beta_oX_i
++ \beta_dX_j
++ \gamma\log d_{ij}
++ u_i
++ v_j
++ w_{ij}
++ \xi_{ij}
+$$
 
-This model incorporates the multilevel structure. It enables pooling
-information across related places. An origin effect lets flows from the
-same origin share information. A destination effect does the same for
-flows arriving at the same destination. A corridor effect captures
-persistent structure between a specific origin and destination. These
-terms are useful when the data contain enough repeated information for
-their estimation.
+where $\alpha$ represents the overall level of flow, the terms $X_i$ and $X_j$ represent characteristics of the origin and destination and $d_{ij}$ is the distance between them. The terms $u_i$, $v_j$ and $w_{ij}$ give the model a multilevel structure and allow the model to represent patterns shared by flows from the same origin, to the same destination or repeated observations of the same OD pair. When included, flows from related observations can help inform one another. For example, if only a few movements are observed for one OD pair, the model can also consider the general pattern among flows from the same origin or to the same destination. The estimate for that OD pair is therefore based partly on its own data and partly on patterns found in related flows. This can lead to more stable estimates when some observed flows are small or highly variable. After combining all the terms in the above equation, an exponential transformation can be applied to obtain a positive expected population flow, $\lambda^{true}_{ij}$.
 
-The estimated true flow $F^{true}_{ij}$ is thus the prediction from the
-true-flow equation. Random effects can be included and also contribute
-to the prediction. In the S1 example below, we set
-`random_intercept = "none"` because each corridor appears once, so the
-example is a fixed-effect coverage-offset fit. The same model variant
-becomes explicitly multilevel when the formula or arguments add origin,
-destination, OD, source or time pooling structure. We illustrate
-examples of more complex structures, including random intercepts, in the
-next vignette.
+***How are the unknown quantities in Component 1 and 2 estimated?***. Following a Bayesian approach, `adjust_multilevel_bayes()` assigns prior distributions to the model parameters, including the regression coefficients and any multilevel effects if present in the model. These priors describe plausible parameter values before the observed MPD flows are considered. The function then combines the prior distributions with the observed MPD flows through the observation model to generate posterior distributions of the parameter values.
 
-The Bayesian model adjusts MPD flows by producing predictions on two
-scales. The first is the **MPD-observed scale**, which keeps the
-coverage offset:
+$$
+\text{prior distributions}
++
+\text{observed MPD flows}
+\longrightarrow
+\text{posterior distributions}
+$$
 
-$$F^{mpd,pred}_{ij} = \exp(\log(q_{ij}) + \eta^{true}_{ij})$$
+To generate a posterior distribution of the adjusted flow, the function `adjust_multilevel_bayes()` samples many sets of parameter values from their posterior distributions. For each sample, known as posterior draw $s$, a corresponding expected underlying flow is calculated as $F^{adj,(s)}_{ij}$ = $\lambda^{true,(s)}_{ij}$ = $\exp(\eta^{true,(s)}_{ij})$. For example, different posterior draws might produce adjusted flows of 482, 510, 495 and 536 for the same OD pair. These represent different underlying flows that remain plausible given the observed MPD data, coverage rates, model specification and prior assumptions. The collection of draws forms the posterior distribution of the adjusted flow.
 
-This is the modelled MPD count which is the number of MPD observations
-we would expect to see for an OD flow at the observed coverage level. It
-remains on the device or active-user scale. This scale is useful to
-assess if the model can reproduce the MPD data, but it is not the
-adjusted population estimate.
+#### Implementation
 
-The second is the **population or true-flow scale**, which removes the
-coverage offset:
-
-$$F^{adj}_{ij} = F^{true,pred}_{ij} = \exp(\eta^{true}_{ij})$$
-
-This is the adjusted flow returned by the model when
-`target_scale = "true_flow"`. It addresses the question: what
-population-level flow is consistent with the observed MPD count,
-active-user coverage rate, covariates and model structure? The model
-moves from MPD observations to people by accounting for the fraction of
-the population visible in the MPD data:
-
-$$\text{population flow} \approx
-\frac{\text{MPD-observed flow}}{\text{active-user coverage rate}}$$
-
-The full Bayesian model combines the observed MPD count, coverage rate,
-covariates, distance and any multilevel terms to estimate a plausible
-population flow for each OD pair. This stabilises the adjustment when
-some OD flows are small or noisy.
-
-Both predictions are computed for every posterior draw and then
-summarised with `flow_adj_summary`, the posterior median or posterior
-mean. The column `flow_mpd_pred` reports the posterior summary on the
-MPD-observed scale. The column `flow_adj` is the main adjusted estimate.
-With `target_scale = "true_flow"`, it reports the population-scale
-prediction.
-
-::: {.callout-note title="Coverage-offset is not coefficient regression"}
-The coefficient regression and DEBIAS coverage-offset model can both
-return Census-scale adjusted flows, but they use different information
-to get there. Coefficient regression learns a direct calibration from an
-observed benchmark relationship. A simple version is:
-
-$$E(F^{bench}_{ij}) = \beta F^{mpd}_{ij}$$
-
-or, on a log scale:
-
-$$\log E(F^{bench}_{ij}) = \alpha + \log(F^{mpd}_{ij})$$
-
-The benchmark flow is therefore part of the fitting process. The
-estimated coefficient tells the model how to transform MPD flows so they
-look more like the benchmark flows used for calibration.
-
-The coverage-offset model instead starts from the observation process.
-It says that the MPD count is a partial observation of an unobserved
-true flow:
-
-$$F^{mpd}_{ij} \sim \mathrm{Poisson}(q_{ij}F^{true}_{ij})$$
-
-Here $q_{ij}$ is fixed from active-user coverage. The model estimates
-$F^{true}_{ij}$ by fitting the MPD observation model and then removing
-the coverage offset. A benchmark OD table is useful for validation, but
-it is not required to fit the coverage-offset model.
-:::
-
-### Implementation
-
-To use `adjust_multilevel_bayes()`, input the observed MPD flows to
-`mpd_od_df`, population coverage to `coverage_df`, area-level covariates
+The code below shows how to fit the Bayesian coverage-offset model and inspect its main outputs. When fitting the Bayesian models, it is important to use enough iterations and chains for the application and check the sampler diagnostics before interpreting the results. To use `adjust_multilevel_bayes()`, input the observed MPD flows to `mpd_od_df`, population coverage to `coverage_df`, area-level covariates
 to `covariates_df` and OD distances to `distance_df`. The example below
-uses a single source and a single observation period. The
-`prediction_scope` argument controls if the method adjusts only observed
-MPD pairs or predicts over a complete OD matrix.
+uses the S1 scenario, with a single data source and a single observation period.
 
-```{r echo=FALSE}
-bayesian_input_guide <- tibble::tribble(
-  ~Input, ~What_it_supplies,
-  "`mpd_od_df`", "Observed MPD origin-destination counts.",
-  "`coverage_df`", "Active-user coverage rates used to build the observation offset.",
-  "`covariates_df`", "Origin and destination predictors for the true-flow model.",
-  "`distance_df`", "OD distances or distance-derived predictors."
-)
-
-knitr::kable(
-  bayesian_input_guide,
-  col.names = c("Input", "What it supplies")
-)
-```
-
-For the coverage-offset model variant, most users only need a small set
-of core arguments.
+For the coverage-offset model variant, most users only need a small set of arguments. The `mobility_formula` defines the true-flow model described above. Here we use
+`rural_pct_o`, `rural_pct_d` and `log_distance` to represent origin
+covariates, destination covariates and distance. This example uses a
+fixed-effect intercept, but the model can accommodate multilevel terms
+such as random effects by origin `(1 | origin)` or by destination `(1 | destination)`. The recommended mode for the observation model is `target_scale = "true_flow"` and
+`observation_model = "coverage_offset"`. The wider parameter set is covered
+in the advanced Bayesian vignette.
 
 ```{r echo=FALSE}
 bayesian_parameter_guide <- tibble::tribble(
@@ -866,22 +702,6 @@ bayesian_parameter_guide <- tibble::tribble(
 
 knitr::kable(bayesian_parameter_guide)
 ```
-
-As stated above, the coverage-offset model equations translate into two
-components. `mobility_formula` defines the true-flow model. Here we use
-`rural_pct_o`, `rural_pct_d` and `log_distance` to represent origin
-covariates, destination covariates and distance. This example uses a
-fixed-effect intercept, but the model can accommodate multilevel terms
-such as `(1 | origin)` or `(1 | destination)`. The recommended mode for
-the observation model is `target_scale = "true_flow"` and
-`observation_model = "coverage_offset"`. The `coverage_scale` selects if
-the offset uses origin, destination or geometric-mean coverage.
-
-The wider parameter set, including `latent_flow_unit`, latent-prior
-controls and the `reduced_form` compatibility model variant, is covered
-in the advanced Bayesian vignette. Use these model structures when you
-would like to model datasets with repeated source/time observations, or
-compare model variants.
 
 The example below uses a Bayesian fixed-effect true-flow model with an
 origin coverage offset.
@@ -926,9 +746,6 @@ adj_multilevel <- adjust_multilevel_bayes(
 )
 ```
 
-The table below reports the main outputs from
-`adjust_multilevel_bayes()`, along with `flow_benchmark` reporting the
-benchmark flows for comparison.
 
 ```{r echo=FALSE}
 bayesian_example_file <- system.file(
@@ -950,34 +767,22 @@ bayesian_example <- tibble::as_tibble(
 knitr::kable(bayesian_example, digits = 2)
 ```
 
-In the output summary, `flow` is the observed MPD count and `flow_adj`
+The table above reports the main outputs from
+`adjust_multilevel_bayes()`, along with `flow_benchmark` reporting the
+benchmark flows for comparison. The column `flow` is the observed MPD count and `flow_adj`
 is the main adjusted flow estimate. The function call sets
 `flow_adj_summary = "median"`, so `flow_adj` equals `flow_adj_median` in
-this example. The columns `flow_adj_median` and `flow_adj_mean` report
+this example. It is also possible to set `flow_adj_summary = "mean"`. The columns `flow_adj_median` and `flow_adj_mean` report
 two posterior summaries of the estimated population flow. The column
 `flow_mpd_pred` reports the fitted value on the MPD-observed scale,
-after applying the coverage offset. The full returned object also
-includes scale-specific and interval columns such as `flow_true_pred`,
-`flow_mpd_pred_median`, `flow_mpd_pred_mean`, `flow_adj_q2.5`,
-`flow_adj_q97.5`, `flow_mpd_pred_q2.5` and `flow_mpd_pred_q97.5`. In
-this example, `flow_true_pred` is equal to `flow_adj`, so the displayed
+after applying the coverage offset. The table also
+includes `flow_true_pred`, which in
+this example, is equal to `flow_adj`, so the displayed
 table keeps `flow_adj` as the single main population-scale adjusted
-estimate.
+estimate. Furthemore, the predicted median and mean flow in the MPD data and confidence intervals for the adjusted flows are reported under `flow_mpd_pred_median`, `flow_mpd_pred_mean`, `flow_adj_q2.5`,
+`flow_adj_q97.5`, `flow_mpd_pred_q2.5` and `flow_mpd_pred_q97.5`.  The example uses moderate sampler settings for illustrative purposes. For applied analysis, it is recommended to increase the number of iterations and chains.
 
-The example uses moderate sampler settings for illustrative purposes.
-For applied analysis, increase the number of iterations and chains.
-
-*Additional outputs and diagnostics*
-
-You can inspect the metadata and terms to confirm the scenario and
-fitted formula. Inspect sampler diagnostics before interpreting the
-posterior summaries.
-
-```{r eval=FALSE}
-attr(adj_multilevel, "result_metadata")
-attr(adj_multilevel, "model_terms")
-attr(adj_multilevel, "diagnostics")
-```
+You can inspect the results metadata to confirm the scenario, model variant, coverage scale and other attributes of model setup.
 
 ```{r echo=FALSE}
 bayesian_metadata_file <- system.file(
@@ -1006,36 +811,48 @@ bayesian_terms <- tibble::as_tibble(
   utils::read.csv(bayesian_terms_file, check.names = FALSE)
 )
 
+```
+
+```{r eval=FALSE}
+attr(adj_multilevel, "result_metadata")
+```
+
+```{r echo=FALSE}
 knitr::kable(bayesian_metadata)
+```
+
+It is also possible to inspect the model terms, which include the specific model equations used for modelling.
+
+```{r eval=FALSE}
+attr(adj_multilevel, "model_terms")
+```
+
+```{r echo=FALSE}
 knitr::kable(bayesian_terms)
 ```
 
-The metadata report the engine, target scale, observation model,
-coverage offset, resolved scenario, repeated-observation structure,
-prediction scope and model terms used to fit the adjustment model. They
-show the data source and temporal structure used (S1) i.e. one MPD
-source and one observation period. In the full R object, `flow` stores
-the observed MPD count and `flow_mpd_pred` stores the fitted MPD-scale
-prediction. The practical adjusted-flow column is `flow_adj`. When
-`target_scale = "true_flow"`, `flow_adj` is the estimated population
-flow. The object also keeps `flow_true_pred` as a scale-specific
-Bayesian prediction column, but in this setting it is equal to
-`flow_adj`.
+Finally, inspecting sampler diagnostics can be helpful before interpreting the posterior summaries.
 
-*More complex Bayesian structures*
+```{r eval=FALSE}
+attr(adj_multilevel, "diagnostics")
+```
 
-The function `adjust_multilevel_bayes()` can accommodate more complex
-S2-S4 source/time structures through `scenario`, `source_col`,
-`time_col` and `repeated_observation`. For repeated source/time data,
-users can select `observation_model = "latent_two_level"`. This model
-structure estimates one shared latent true-flow state for an OD pair or
-OD-time group and treats each source/time MPD row as an observation of
-that state. This is most useful for S3 and S4 structures, where multiple
-MPD sources observe the same underlying mobility state. Source and time
-effects live in the observation model, so `flow_true_pred` is
-source-invariant within a latent state, while `flow_mpd_pred` can vary
-by source and time. See the [advanced Bayesian adjustment
-vignette](v09-advanced-bayesian-adjustment.html) for more details.
+<!-- *More complex Bayesian structures* -->
+<!-- The function `adjust_multilevel_bayes()` can accommodate more complex S2-S4 -->
+<!-- source/time structures through `scenario`, `source_col`, `time_col` and -->
+<!-- `repeated_observation`. For repeated source/time data, users can select -->
+<!-- `observation_model = "latent_two_level"`. This model structure estimates one -->
+<!-- shared latent true-flow state for an OD pair or OD-time group and treats each -->
+<!-- source/time MPD row as an observation of that state. This is most useful for S3 -->
+<!-- and S4 structures, where multiple MPD sources observe the same underlying -->
+<!-- mobility state. Source and time effects live in the observation model, so -->
+<!-- `flow_true_pred` is source-invariant within a latent state, while -->
+<!-- `flow_mpd_pred` can vary by source and time. See the [advanced Bayesian -->
+<!-- adjustment vignette](v09-advanced-bayesian-adjustment.html) for more -->
+<!-- details. -->
+
+
+
 
 ## Fit all methods
 
@@ -1188,6 +1005,19 @@ main table {
 main table th,
 main table td {
   vertical-align: top;
+}
+
+.key-point-box {
+  margin: 1.25rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid #d8dee6;
+  border-left: 4px solid #446e9b;
+  border-radius: 4px;
+  background: #f7f9fb;
+}
+
+.key-point-box > :last-child {
+  margin-bottom: 0;
 }
 
 .method-table-wrap {
