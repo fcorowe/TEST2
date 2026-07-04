@@ -9,6 +9,11 @@
 - [ ] New feature
 - [ ] Documentation update
 
+## Merge route
+
+- [ ] Review route: wait for an approving review before merge
+- [ ] Francisco maintainer-bypass route: Francisco Rowe (`fcorowe`) explicitly requests bypassing the review wait and merging or squash-merging this PR directly
+
 ## Checklist
 
 - [ ] My code follows the style guidelines of this project

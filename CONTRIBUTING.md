@@ -10,6 +10,18 @@ are not part of the project workflow, including for maintainers and automation
 agents. Francisco Rowe (`fcorowe`) and Carmen Cabrera (`carmen-cabrera`) can
 review and merge accepted pull requests.
 
+Every pull request should choose one merge route:
+
+- **Review route:** this is the default route. The PR waits for an approving
+  review from an eligible reviewer before merge.
+- **Francisco maintainer-bypass route:** Francisco Rowe (`fcorowe`), as the
+  main developer of `debiasR`, may explicitly request that his own PR, or a PR
+  opened on his behalf, bypass the review wait and be merged or squash-merged
+  directly when deadlines or reviewer availability require it. This exception
+  applies only to Francisco. It still requires a branch, a pull request, a
+  clear bypass statement in the PR body or discussion, and passing required
+  checks unless Francisco explicitly accepts the remaining risk.
+
 1. **Clone the repository**  
    ```bash
    git clone https://github.com/de-bias/debiasR.git
@@ -47,7 +59,9 @@ review and merge accepted pull requests.
 
 7. **Open a Pull Request (PR)**  
    Use the PR template in `.github/pull_request_template.md` and link any related issues.
-   A code-owner review is required before changes can be merged into `main`.
+   Select either the review route or Francisco maintainer-bypass route in the
+   template. Use the review route unless Francisco explicitly requests the
+   bypass route.
 
 ---
 
