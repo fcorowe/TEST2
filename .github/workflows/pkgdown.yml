@@ -113,7 +113,8 @@ jobs:
             live_sha="$(curl --fail --silent --show-error --location "${marker_url}" | tr -d '\r\n' || true)"
 
             if [ "${live_sha}" = "${GITHUB_SHA}" ]; then
-              curl --fail --silent --show-error --location "${home_url}" | grep -q "debiasR"
+              home_html="$(curl --fail --silent --show-error --location "${home_url}")"
+              grep -q "debiasR" <<< "${home_html}"
               echo "Live pkgdown site is serving ${GITHUB_SHA}."
               exit 0
             fi
