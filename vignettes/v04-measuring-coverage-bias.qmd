@@ -222,7 +222,7 @@ print(
 ```
 
 
-The fucntion `validate_bias_residual_structure()` calculates the proportional baseline model and returns expected user counts under the equal-coverage assumption, plus several residual measures for each LAD. The object returned by `validate_bias_residual_structure()` is a list. Each component gives different information:
+The function `validate_bias_residual_structure()` calculates the proportional baseline model and returns expected user counts under the equal-coverage assumption, plus several residual measures for each LAD. The object returned by `validate_bias_residual_structure()` is a list. Each component gives different information:
 
 - `summary` gives the overall active-user coverage rate, the number of areas and summary
   measures of the residuals
