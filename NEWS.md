@@ -1,5 +1,12 @@
 # debiasR 0.0.0.9005
 
+### Repository governance
+
+- Documented the two PR merge routes: the default review route and a
+  Francisco-only maintainer-bypass route for PRs opened by or on behalf of
+  Francisco Rowe when deadlines or reviewer availability require direct merge
+  or squash merge through the PR process.
+
 ### Adjustment workflows
 
 - Added `adjust_all_methods()` as an exported convenience function for fitting
