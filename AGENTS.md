@@ -88,6 +88,9 @@ Documentation:
   `debiasR_example_data(n_areas = Inf, complete_grid = TRUE, geography = "lad")`
   for live deterministic examples. Keep full-LAD Bayesian fitting out of the
   live render unless explicitly requested.
+- For v07 Bayesian comparison rows, use the precomputed
+  `inst/extdata/v07-validation-bayesian-*.csv` bundle during render rather than
+  fitting Bayesian models or running MCMC in the vignette.
 - For v07 Local Moran/LISA maps, use deterministic nearest-neighbour LAD links
   from real LAD centroid distances. Boundary polygons should come from the
   cached public ONS 2021 LAD BFC download or a user-supplied

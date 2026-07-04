@@ -47,11 +47,11 @@ labels to include. Default \code{NULL} includes all methods.}
 \item{plot_type}{Plot type to return: \code{"comparison"} for a horizontal
 benchmark-comparison chart or \code{"heatmap"} for the full pairwise matrix.}
 
-\item{sort}{Sort order for the comparison chart. Use \code{"none"} to keep method
-order, \code{"ascending"} for smallest-to-largest divergence, or
-\code{"descending"} for largest-to-smallest divergence. Adjusted methods are
-sorted; the raw MPD baseline remains at the edge as a reference row.
-Default \code{"none"}.}
+\item{sort}{Method sort order. Use \code{"none"} to keep method order,
+\code{"ascending"} for smallest-to-largest divergence, or \code{"descending"} for
+largest-to-smallest divergence. Adjusted methods are sorted in comparison
+charts and heatmap facets; the raw MPD baseline remains at the edge as a
+reference row or facet. Default \code{"none"}.}
 
 \item{mirror_jsd}{Logical. If \code{TRUE}, mirror JSD values to show a symmetric
 matrix. Default \code{TRUE}.}

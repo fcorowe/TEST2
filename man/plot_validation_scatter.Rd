@@ -11,6 +11,7 @@ plot_validation_scatter(
   methods = NULL,
   method_col = "method",
   method_labels = NULL,
+  facet_ncol = NULL,
   difference_limits = NULL,
   difference_quantile = 0.95,
   white_band = 0.22,
@@ -18,7 +19,9 @@ plot_validation_scatter(
   point_size = 1.1,
   point_outline = TRUE,
   point_outline_colour = "#6B7280",
-  point_stroke = 0.12
+  point_stroke = 0.12,
+  sort = c("none", "ascending", "descending"),
+  sort_metric = c("median_absolute_residual", "mean_absolute_residual", "mean_residual")
 )
 
 plot_validate_flow_scatter(...)
@@ -39,6 +42,10 @@ labels to include. Default \code{NULL} includes all methods.}
 \code{"method"}.}
 
 \item{method_labels}{Optional named character vector used to relabel methods.}
+
+\item{facet_ncol}{Optional number of facet columns. Use this to keep
+multi-method scatterplots compact and avoid very wide panels. Default
+\code{NULL} lets \code{ggplot2::facet_wrap()} choose the layout.}
 
 \item{difference_limits}{Optional numeric vector of length 2 giving the
 colour-scale limits for the signed difference. Values outside the limits
@@ -64,6 +71,15 @@ Default \code{"#6B7280"}.}
 
 \item{point_stroke}{Outline stroke width used when \code{point_outline = TRUE}.
 Default \code{0.12}.}
+
+\item{sort}{Method sort order. Use \code{"none"} to keep the supplied method
+order, \code{"ascending"} for smallest-to-largest values, or \code{"descending"} for
+largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+right. Default \code{"none"}.}
+
+\item{sort_metric}{Residual summary used when \code{sort} is not \code{"none"}.
+Options are \code{"median_absolute_residual"}, \code{"mean_absolute_residual"}, and
+\code{"mean_residual"}. Default \code{"median_absolute_residual"}.}
 }
 \value{
 A \code{ggplot} object.

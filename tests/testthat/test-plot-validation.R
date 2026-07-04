@@ -146,6 +146,12 @@ test_that("validation metric matrix plot returns a ggplot", {
     comparisons = "all",
     methods = "method_a"
   )
+  wrapped_label_metrics <- fixture$overall$method_a
+  wrapped_label_metrics$method <- "unadjusted"
+  wrapped_label_plot <- plot_validation_metrics(
+    list(unadjusted = wrapped_label_metrics, method_b = fixture$overall$method_b),
+    method_labels = c(unadjusted = "Unadjusted\nraw MPD")
+  )
   selected_plot <- plot_validation_metrics(
     fixture$overall,
     error_measures = c("mae", "rmse"),
@@ -156,6 +162,20 @@ test_that("validation metric matrix plot returns a ggplot", {
     error_measures = c("MAE", "Root mean squared error"),
     methods = "Method B",
     method_labels = c(method_b = "Method B")
+  )
+  sorted_plot <- plot_validation_metrics(
+    fixture$overall,
+    error_measures = c("mae", "rmse"),
+    sort = "ascending",
+    sort_metric = "mae"
+  )
+  unadjusted_metrics <- fixture$overall_all$method_a
+  unadjusted_metrics$method <- "unadjusted"
+  raw_deduplicated_plot <- plot_validation_metrics(
+    list(unadjusted = unadjusted_metrics, method_a = fixture$overall_all$method_a),
+    error_measures = c("mae", "rmse"),
+    comparisons = c("adjusted_vs_benchmark", "raw_vs_benchmark"),
+    method_labels = c(unadjusted = "Unadjusted raw MPD")
   )
   metric_cols_plot <- plot_validation_metrics(
     fixture$overall,
@@ -171,6 +191,8 @@ test_that("validation metric matrix plot returns a ggplot", {
   expect_s3_class(all_comparisons_plot, "ggplot")
   expect_s3_class(selected_plot, "ggplot")
   expect_s3_class(labelled_measure_plot, "ggplot")
+  expect_s3_class(sorted_plot, "ggplot")
+  expect_s3_class(raw_deduplicated_plot, "ggplot")
   expect_s3_class(metric_cols_plot, "ggplot")
   expect_s3_class(custom_break_plot, "ggplot")
   expect_s3_class(alias_plot, "ggplot")
@@ -185,10 +207,30 @@ test_that("validation metric matrix plot returns a ggplot", {
     "Adjusted methods and raw MPD vs benchmark" %in%
       as.character(all_comparisons_plot$data$comparison_display_label)
   )
+  expect_equal(
+    head(levels(all_comparisons_plot$data$method_label), 1),
+    "Unadjusted raw MPD"
+  )
+  expect_equal(
+    head(levels(wrapped_label_plot$data$method_label), 1),
+    "Unadjusted\nraw MPD"
+  )
   expect_equal(unique(as.character(selected_plot$data$metric)), c("mae", "rmse"))
   expect_equal(unique(as.character(selected_plot$data$method)), "method_a")
   expect_equal(unique(as.character(labelled_measure_plot$data$metric)), c("mae", "rmse"))
   expect_equal(unique(as.character(labelled_measure_plot$data$method)), "method_b")
+  sorted_levels <- rev(levels(sorted_plot$data$method_label))
+  sorted_values <- sorted_plot$data |>
+    dplyr::filter(.data$metric == "mae") |>
+    dplyr::arrange(match(.data$method_label, sorted_levels)) |>
+    dplyr::pull("value")
+  expect_false(is.unsorted(sorted_values, strictly = FALSE))
+  expect_equal(
+    raw_deduplicated_plot$data |>
+      dplyr::filter(.data$metric == "mae", .data$method_label == "Unadjusted raw MPD") |>
+      nrow(),
+    1L
+  )
   expect_equal(unique(as.character(metric_cols_plot$data$metric)), "mape")
   expect_true("relative_error_band" %in% names(plot$data))
   expected_relative_error_labels <- c(
@@ -327,6 +369,10 @@ test_that("validation residual violin plot returns a ggplot", {
     "Adjusted methods and raw MPD vs benchmark" %in%
       as.character(all_comparisons_plot$data$comparison_display_label)
   )
+  expect_equal(
+    tail(levels(all_comparisons_plot$data$method_label), 1),
+    "Unadjusted raw MPD"
+  )
   layer_geoms <- vapply(plot$layers, function(layer) {
     class(layer$geom)[1]
   }, character(1))
@@ -374,26 +420,32 @@ test_that("validation scatter plot returns a ggplot", {
     fixture$residuals,
     white_band = 0.2
   )
+  compact_plot <- plot_validation_scatter(
+    fixture$residuals,
+    facet_ncol = 2
+  )
 
   expect_s3_class(plot, "ggplot")
   expect_s3_class(benchmark_comparisons_plot, "ggplot")
   expect_equal(unique(as.character(plot$data$comparison)), "adjusted_vs_benchmark")
-  expect_equal(plot$labels$x, "X-axis: Adjusted flow (people)")
-  expect_equal(plot$labels$y, "Y-axis: Benchmark flow (people)")
-  expect_equal(raw_adjusted_plot$labels$x, "X-axis: Raw MPD flow (people)")
-  expect_equal(raw_adjusted_plot$labels$y, "Y-axis: Adjusted flow (people)")
-  expect_equal(raw_benchmark_plot$labels$x, "X-axis: Raw MPD flow (people)")
-  expect_equal(raw_benchmark_plot$labels$y, "Y-axis: Benchmark flow (people)")
+  expect_equal(plot$labels$x, "Adjusted flows (people)")
+  expect_equal(plot$labels$y, "Benchmark flows (people)")
+  expect_equal(raw_adjusted_plot$labels$x, "Raw flows (people)")
+  expect_equal(raw_adjusted_plot$labels$y, "Adjusted flows (people)")
+  expect_equal(raw_benchmark_plot$labels$x, "Raw flows (people)")
+  expect_equal(raw_benchmark_plot$labels$y, "Benchmark flows (people)")
+  expect_equal(compact_plot$facet$params$ncol, 2L)
   expect_equal(
     all_comparisons_plot$labels$x,
-    "X-axis flow (people; see facet header)"
+    "Adjusted or raw flows (people)"
   )
+  expect_equal(all_comparisons_plot$labels$y, "Benchmark or adjusted flows (people)")
   expect_equal(
     sort(unique(as.character(all_comparisons_plot$data$scatter_comparison_label))),
     sort(c(
-      "Adjusted vs benchmark\nX: Adjusted | Y: Benchmark",
-      "Raw MPD vs adjusted\nX: Raw MPD | Y: Adjusted",
-      "Raw MPD vs benchmark\nX: Raw MPD | Y: Benchmark"
+      "Adjusted vs benchmark",
+      "Raw MPD vs adjusted",
+      "Raw MPD vs benchmark"
     ))
   )
   expect_equal(
@@ -419,6 +471,10 @@ test_that("validation scatter plot returns a ggplot", {
     "Adjusted methods and raw MPD vs benchmark" %in%
       as.character(all_comparisons_plot$data$comparison_display_label)
   )
+  expect_equal(
+    tail(levels(all_comparisons_plot$data$method_label), 1),
+    "Unadjusted raw MPD"
+  )
   expect_s3_class(plain_plot, "ggplot")
   expect_s3_class(limited_plot, "ggplot")
   expect_s3_class(neutral_band_plot, "ggplot")
@@ -438,6 +494,12 @@ test_that("validation residual band stacked bar plots return ggplots", {
     comparisons = "all",
     methods = "method_a"
   )
+  vertical_all_comparisons_plot <- plot_validation_residual_bands(
+    fixture$residuals,
+    comparisons = "all",
+    methods = "method_a",
+    orientation = "vertical"
+  )
   vertical_plot <- plot_validation_residual_bands(
     fixture$residuals,
     orientation = "vertical"
@@ -455,6 +517,14 @@ test_that("validation residual band stacked bar plots return ggplots", {
   expect_true(
     "Adjusted methods and raw MPD vs benchmark" %in%
       as.character(all_comparisons_plot$data$comparison_label)
+  )
+  expect_equal(
+    head(levels(all_comparisons_plot$data$method_label), 1),
+    "Unadjusted raw MPD"
+  )
+  expect_equal(
+    tail(levels(vertical_all_comparisons_plot$data$method_label), 1),
+    "Unadjusted raw MPD"
   )
   expect_equal(plot$labels$x, "Share of OD pairs")
   expect_null(plot$labels$y)
@@ -522,6 +592,13 @@ test_that("distributional validation plots return ggplots", {
     methods = c("method_a", "method_b"),
     sort = "ascending"
   )
+  sorted_pairwise_heatmap <- plot_validation_distribution_pairwise(
+    fixture$distributions,
+    comparisons = c("adjusted_vs_benchmark", "raw_vs_benchmark"),
+    methods = c("method_a", "method_b"),
+    plot_type = "heatmap",
+    sort = "ascending"
+  )
 
   expect_s3_class(summary_plot, "ggplot")
   expect_s3_class(pairwise_plot, "ggplot")
@@ -529,6 +606,7 @@ test_that("distributional validation plots return ggplots", {
   expect_s3_class(all_comparisons_plot, "ggplot")
   expect_s3_class(full_pairwise_plot, "ggplot")
   expect_s3_class(sorted_pairwise_plot, "ggplot")
+  expect_s3_class(sorted_pairwise_heatmap, "ggplot")
   expect_equal(unique(as.character(summary_plot$data$comparison_label)), "Adjusted vs benchmark")
   expect_equal(
     sort(unique(as.character(all_comparisons_plot$data$method))),
@@ -549,6 +627,10 @@ test_that("distributional validation plots return ggplots", {
     dplyr::arrange(match(.data$method_label, sorted_levels)) |>
     dplyr::pull("divergence")
   expect_true(is.unsorted(sorted_values, strictly = FALSE) == FALSE)
+  expect_equal(
+    tail(levels(sorted_pairwise_heatmap$data$method_label), 1),
+    "Unadjusted raw MPD"
+  )
   expect_true(any(vapply(pairwise_plot$layers, function(layer) {
     inherits(layer$geom, "GeomCol")
   }, logical(1))))
@@ -571,12 +653,24 @@ test_that("residual-structure validation plot returns a ggplot", {
     near_zero_band = NULL,
     show_value_labels = FALSE
   )
+  sorted_plot <- plot_validation_structure(
+    fixture$structure,
+    sort = "ascending",
+    sort_metric = "pearson_residual_benchmark_flow"
+  )
 
   expect_s3_class(plot, "ggplot")
   expect_s3_class(filtered_plot, "ggplot")
   expect_s3_class(no_band_plot, "ggplot")
+  expect_s3_class(sorted_plot, "ggplot")
   expect_equal(unique(as.character(plot$data$comparison)), "adjusted_vs_benchmark")
   expect_equal(unique(as.character(filtered_plot$data$method)), "method_a")
+  sorted_levels <- rev(levels(sorted_plot$data$method_label))
+  sorted_values <- sorted_plot$data |>
+    dplyr::filter(.data$metric == "pearson_residual_benchmark_flow") |>
+    dplyr::arrange(match(.data$method_label, sorted_levels)) |>
+    dplyr::pull("value")
+  expect_false(is.unsorted(sorted_values, strictly = FALSE))
   expect_true(all(c(
     "Spatial autocorrelation\n(Moran's I)",
     "Residual-flow\ncorrelation (r)",
@@ -660,11 +754,26 @@ test_that("LISA validation map plots user-supplied boundaries", {
     methods = "method_a",
     p_value_threshold = NULL
   )
+  sorted_plot <- plot_validation_lisa_map(
+    fixture$structure_lisa,
+    boundaries = boundaries,
+    methods = c("method_a", "method_b"),
+    sort = "ascending",
+    sort_metric = "significant_area_share"
+  )
   unmasked_layer_index <- which(vapply(unmasked_plot$layers, function(layer) {
     "method" %in% names(layer$data)
   }, logical(1)))[1]
   unmasked_data <- unmasked_plot$layers[[unmasked_layer_index]]$data
   expect_false(all(as.character(unmasked_data$.lisa_cluster) == "not significant"))
+  sorted_layer_index <- which(vapply(sorted_plot$layers, function(layer) {
+    "method" %in% names(layer$data)
+  }, logical(1)))[1]
+  sorted_data <- sorted_plot$layers[[sorted_layer_index]]$data
+  expect_equal(
+    sort(unique(as.character(sorted_data$method))),
+    c("method_a", "method_b")
+  )
 
   expect_error(
     plot_validation_lisa_map(

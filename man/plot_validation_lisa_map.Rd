@@ -22,7 +22,9 @@ plot_validation_lisa_map(
   boundary_linewidth = 0,
   outline_boundaries = NULL,
   outline_colour = "white",
-  outline_linewidth = 0.45
+  outline_linewidth = 0.45,
+  sort = c("none", "ascending", "descending"),
+  sort_metric = c("significant_area_share", "mean_abs_local_moran", "mean_local_moran")
 )
 }
 \arguments{
@@ -81,6 +83,17 @@ administrative boundaries to draw over the mapped areas.}
 \item{outline_colour}{Larger-boundary outline colour. Default \code{"white"}.}
 
 \item{outline_linewidth}{Larger-boundary outline width. Default \code{0.45}.}
+
+\item{sort}{Method sort order. Use \code{"none"} to keep the supplied method
+order, \code{"ascending"} for smallest-to-largest values, or \code{"descending"} for
+largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+final facet. Default \code{"none"}.}
+
+\item{sort_metric}{LISA-map summary used when \code{sort} is not \code{"none"}.
+\code{"significant_area_share"} sorts by the share of mapped areas in a
+significant LISA class, \code{"mean_abs_local_moran"} by the mean absolute Local
+Moran statistic, and \code{"mean_local_moran"} by the mean Local Moran
+statistic. Default \code{"significant_area_share"}.}
 }
 \value{
 A \code{ggplot} object.

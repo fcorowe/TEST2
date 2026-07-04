@@ -12,7 +12,8 @@ plot_validation_distribution(
   comparisons = "adjusted_vs_benchmark",
   methods = NULL,
   method_col = "method",
-  method_labels = NULL
+  method_labels = NULL,
+  sort = c("none", "ascending", "descending")
 )
 
 plot_validate_flow_distribution_heatmap(...)
@@ -38,6 +39,11 @@ labels to include. Default \code{NULL} includes all methods.}
 \code{"method"}.}
 
 \item{method_labels}{Optional named character vector used to relabel methods.}
+
+\item{sort}{Method sort order. Use \code{"none"} to keep the supplied method
+order, \code{"ascending"} for smallest-to-largest divergence, or
+\code{"descending"} for largest-to-smallest divergence. The unadjusted raw MPD
+baseline remains at the bottom. Default \code{"none"}.}
 }
 \value{
 A \code{ggplot} object.

@@ -15,7 +15,9 @@ plot_validation_metrics(
   method_family_col = NULL,
   method_labels = NULL,
   palette = NULL,
-  relative_error_breaks = seq(0, 100, by = 10)
+  relative_error_breaks = seq(0, 100, by = 10),
+  sort = c("none", "ascending", "descending"),
+  sort_metric = NULL
 )
 
 plot_validate_flow_metrics(...)
@@ -54,6 +56,14 @@ error intensity.}
 \item{relative_error_breaks}{Numeric percentage cut points used to bin the
 within-metric relative-error fill scale. Default \code{seq(0, 100, by = 10)}
 produces legend ranges such as 0-10, 11-20, and 91-100.}
+
+\item{sort}{Method sort order. Use \code{"none"} to keep the supplied method
+order, \code{"ascending"} for smallest-to-largest values, or \code{"descending"} for
+largest-to-smallest values. The unadjusted raw MPD baseline remains at the
+bottom of the matrix. Default \code{"none"}.}
+
+\item{sort_metric}{Metric used when \code{sort} is not \code{"none"}. Defaults to the
+first plotted metric.}
 }
 \value{
 A \code{ggplot} object.
