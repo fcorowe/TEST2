@@ -45,6 +45,12 @@ Every pull request should choose one merge route:
    ```bash
    Rscript scripts/run_fast_tests.R
    ```
+   For documentation, website-text, or governance-only pull requests, explain
+   why the fast deterministic runner is not relevant. The GitHub Actions
+   fast-tests job is path-aware and will keep the required check green through
+   an explicit skip step when no package-relevant files changed. README,
+   vignette, or pkgdown-impacting changes should still rely on the pkgdown
+   workflow or a local site build.
 
 5. **Commit your changes**  
    ```bash

@@ -1,11 +1,14 @@
 # Test Health
 
-Last updated: 2026-06-13
+Last updated: 2026-07-04
 
 ## Summary
 
 - Recommended fast-tier entry point:
   - `Rscript scripts/run_fast_tests.R`
+- The hosted fast deterministic workflow is path-aware: it runs the fast tier
+  for package-relevant paths and uses an explicit green skip for
+  documentation, website-text, and governance-only PRs.
 - Recommended broad local development runner:
   - `Rscript scripts/run_dev_tests.R`
 - Optional Bayesian runner:
@@ -46,7 +49,7 @@ Last updated: 2026-06-13
 
 ## Test Tiers (Recommended)
 
-### Tier 1: Fast deterministic (run on every commit)
+### Tier 1: Fast deterministic (run on package-relevant changes)
 
 - `tests/testthat/test-measure_bias.R`
 - `tests/testthat/test-measure-bias-distribution.R`
@@ -87,10 +90,19 @@ Last updated: 2026-06-13
 
 ## Recommended CI Strategy
 
-1. Job A (required): fast deterministic tests only.
+1. Job A (required): fast deterministic tests only. Keep this workflow
+   path-aware inside the job rather than using top-level `paths-ignore`, so
+   required checks do not remain pending for documentation-only PRs.
 2. Job B (manual / optional): Bayesian tests using hard package dependencies plus explicit test runner packages.
 3. Ensure CI runs from package root and loads package context before test execution.
 4. Keep the fast lane lightweight by installing hard dependencies plus the explicit test runner packages rather than the full optional stack.
+5. The fast deterministic job should run for package-relevant changes under
+   `R/`, `tests/`, `scripts/`, `inst/`, `data/`, `data-raw/`, `man/`, `src/`,
+   `tools/`, or to `DESCRIPTION`, `NAMESPACE`, `.Rbuildignore`,
+   configure/cleanup scripts, and the fast/Bayesian workflow files. README,
+   vignette prose, pkgdown, contributor-guide, and governance-only edits should
+   skip the fast runner while the pkgdown workflow continues to cover
+   website-facing changes.
 
 ## Canonical Commands
 
