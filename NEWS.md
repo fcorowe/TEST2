@@ -1,4 +1,4 @@
-# debiasR 0.0.0.9005
+# debiasR 0.0.0.9006
 
 ### Repository governance
 
@@ -32,10 +32,16 @@
 
 - Reworked the validation vignette around the full real LAD
   origin-destination support from `debiasRdata`, using live deterministic
-  adjustment examples, row-audit checks, and exported `validate_flow_*()` /
-  `plot_validation_*()` workflows across the five validation levels. Full-LAD
+  adjustment examples, row-audit checks, and exported `validate_flow_*()`
+  workflows across the five validation levels. Full-LAD
   Bayesian fitting remains in the advanced Bayesian vignette rather than the
   live validation render because routine vignette builds should not refit MCMC.
+- Promoted reusable validation-vignette workflows into exported package API:
+  `validate_flow_prepare_output()`, `validate_flow_prepare_outputs()`,
+  `validate_flow_overall_methods()`, `validate_flow_residual_methods()`,
+  `validate_flow_distribution_methods()`,
+  `validate_flow_residual_structure_methods()`, and
+  `validate_flow_margins()`.
 - Added the full-LAD Bayesian `coverage_offset` validation outputs to the
   validation vignette's method-inputs, row-audit, and five-level validation
   reporting. The article now reads these Bayesian rows from the precomputed
@@ -73,15 +79,16 @@
   pairwise distribution heatmap facets now also honour method sorting.
 - Revised validation scatterplots to use 2x2 square-panel facet grids and
   simpler axis labels that name adjusted, benchmark, or raw flows in people.
-- Added prototype `plot_validation_*()` functions for validation metric
+- Added prototype `validate_flow_plot_*()` functions for validation metric
   matrices, residual violin plots, pairwise flow scatterplots,
   standard-deviation and quantile residual-band stacked bars, distributional
   allocation heatmaps, residual-structure diagnostics, and optional LISA cluster
   maps from user-supplied `sf` boundaries. The functions now use the shared
   flow-comparison convention, default to `adjusted_vs_benchmark`, and expose
   `error_measures`, `comparisons`, and `methods` selectors for visual
-  iteration. The longer `plot_validate_flow_*()` names remain available as
-  compatibility aliases.
+  iteration. Older `plot_validation_*()` and `plot_validate_flow_*()` names
+  have been replaced so exported validation functions consistently start with
+  `validate_`.
 - Added a concise metadata description to the validation vignette so article
   listings and previews describe the full validation workflow.
 - Kept the optional flow-visualisation vignette source available for later

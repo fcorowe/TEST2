@@ -18,11 +18,12 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Francisco Rowe \email{fcorowe@liverpool.ac.uk}
+\strong{Maintainer}: Francisco Rowe \email{fcorowe@liverpool.ac.uk} (\href{https://orcid.org/0000-0003-4137-0246}{ORCID})
 
 Authors:
 \itemize{
-  \item Carmen Cabrera \email{c.cabrera@liverpool.ac.uk}
+  \item Francisco Rowe \email{fcorowe@liverpool.ac.uk} (\href{https://orcid.org/0000-0003-4137-0246}{ORCID})
+  \item Carmen Cabrera \email{c.cabrera@liverpool.ac.uk} (\href{https://orcid.org/0000-0002-2732-6436}{ORCID})
 }
 
 }

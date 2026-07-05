@@ -9,6 +9,9 @@ Project scope:
 - `debiasR` is an R package for origin-destination mobility bias correction and validation.
 - The repository is public on GitHub as of 2026-06-04. Treat tracked files,
   docs, vignettes, workflows, issues, and pull requests as public-facing.
+- Public adjustment functions must start with `adjust_`, validation functions
+  must start with `validate_`, and measurement functions must start with
+  `measure_`.
 - Stable deterministic helpers use the `adjust_*` and `validate_flow_*` naming pattern.
 - `adjust_multilevel_bayes()` is the main Bayesian path. The default
   `coverage_offset` model variant is approved for observed-flow LAD S1-S4

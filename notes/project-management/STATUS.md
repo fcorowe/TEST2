@@ -1,13 +1,15 @@
 # Project Status
 
-Last updated: 2026-07-02
+Last updated: 2026-07-05
 
 ## Snapshot
 
-- Project stage: active development (`0.0.0.9005`)
+- Project stage: active development (`0.0.0.9006`)
 - Repository visibility: public on GitHub since 2026-06-04
 - Package scope: OD mobility bias correction methods + Stage 2 validation toolkit + Stage 3 bias residual diagnostics + distributional bias diagnostics
-- API direction: stable adjustment methods use `adjust_*`; validation helpers use `validate_flow_*`
+- API direction: public adjustment functions start with `adjust_`, validation
+  functions start with `validate_`, and measurement functions start with
+  `measure_`; flow-validation helpers use the `validate_flow_*` family
 - Bayesian component: `adjust_multilevel_bayes()` is the main methodological innovation and now has observed and complete-grid prediction scopes; the default `coverage_offset` Bayesian model variant is approved for observed-flow empirical LAD S1-S4 workflows, while `latent_two_level` is approved as an advanced observed-row repeated-source S3/S4 model variant
 - Current execution board: see [TASK_BOARD.md](TASK_BOARD.md)
 
@@ -29,6 +31,19 @@ Last updated: 2026-07-02
 - `validate_flow_residuals()`
 - `validate_flow_residual_structure()`
 - `validate_flow_distribution()`
+  - method-comparison helpers: `validate_flow_prepare_output()`,
+    `validate_flow_prepare_outputs()`, `validate_flow_overall_methods()`,
+    `validate_flow_residual_methods()`,
+    `validate_flow_distribution_methods()`,
+    `validate_flow_residual_structure_methods()`, and
+    `validate_flow_margins()`
+  - visual helpers: `validate_flow_plot_metrics()`,
+    `validate_flow_plot_residuals()`, `validate_flow_plot_scatter()`,
+    `validate_flow_plot_residual_bands()`,
+    `validate_flow_plot_distribution()`,
+    `validate_flow_plot_distribution_pairwise()`,
+    `validate_flow_plot_structure()`, and
+    `validate_flow_plot_lisa_map()`
   - legacy aliases retained temporarily: `validate_flow_benchmark()`, `validate_flow_all()`
 
 ### Bayesian multilevel path
@@ -75,6 +90,15 @@ Last updated: 2026-07-02
 
 ## What Changed Recently
 
+- The public function naming rule is now recorded for the package: adjustment
+  functions start with `adjust_`, validation functions start with `validate_`,
+  and measurement functions start with `measure_`. The validation visual API
+  has been renamed from the older `plot_validation_*()` /
+  `plot_validate_flow_*()` prototype names to `validate_flow_plot_*()`, and the
+  validation vignette now calls exported `validate_flow_*()` package helpers
+  for reusable method-comparison, residual, distribution, structure, and margin
+  workflows. Vignette-only helpers remain local when they load/cache external
+  data, format teaching tables, or encode article-specific labels.
 - The validation vignette now uses the full overlapping LAD support from
   `debiasRdata` for live validation examples rather than a 25-area teaching
   subset. The current LAD example contains 313 LADs and 97,969 OD rows, and
@@ -228,7 +252,7 @@ Last updated: 2026-07-02
   base-R permutation pseudo p-values and does not require `sf`, `spdep`, or
   other spatial dependencies.
 - Prototype validation plotting functions are now exported through
-  `plot_validation_*()` functions for metric matrices, residual violin plots,
+  `validate_flow_plot_*()` functions for metric matrices, residual violin plots,
   pairwise flow scatterplots, standard-deviation and quantile residual-band
   stacked bars, distributional allocation heatmaps, pairwise divergence
   matrices, residual-structure diagnostic summaries, and optional LISA cluster
@@ -242,7 +266,7 @@ Last updated: 2026-07-02
   validation-visualisation vignette. The prototype notebook and rendered notes
   under `notes/project-management/` are internal design/review material.
 - Fast core tests passed after replacing the placeholder raking smoke test and removing selection-rate deprecation warnings
-- Stage 2 maintainer review is complete: `validate_flow_residual_structure()` is stable public API; optional scalar diagnostics remain dependency-light, while LISA cluster mapping is exposed separately through `plot_validation_lisa_map()` and requires user-supplied `sf` boundaries; the optional `debiasRdata` companion package is the empirical data source.
+- Stage 2 maintainer review is complete: `validate_flow_residual_structure()` is stable public API; optional scalar diagnostics remain dependency-light, while LISA cluster mapping is exposed separately through `validate_flow_plot_lisa_map()` and requires user-supplied `sf` boundaries; the optional `debiasRdata` companion package is the empirical data source.
 - Stage 3 measure-bias diagnostics now include active-user coverage residuals, optional Moran's I, benchmark origin/destination flow correlations, covariate correlations, map-ready data, and optional plots through `validate_bias_residual_structure()`.
 - Stage 3 maintainer review is complete: `validate_bias_residual_structure()` is stable public API; optional diagnostic plots remain inside the helper for now; a simple population-only linear-regression residual is included as a descriptive diagnostic.
 - The Zenodo data gate is documented in `DATA_REDISTRIBUTION_DECISION.md`: do not bundle the full record in `debiasR`; use the separate optional `debiasRdata` package for empirical travel-to-work examples and keep simulated data as lightweight test fixtures.

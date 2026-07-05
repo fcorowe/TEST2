@@ -1,6 +1,6 @@
 # Task Board
 
-Last updated: 2026-07-02
+Last updated: 2026-07-05
 
 This board turns the current roadmap into a short execution plan. Estimated effort is in rough person-hours.
 
@@ -44,13 +44,33 @@ The staged track below is intended to be implemented one stage per chat window. 
 
 ## Recently Completed
 
+1. Promote validation-vignette workflows into package API - `complete`
+- Completed on 2026-07-05.
+- Recorded the public function naming rule: adjustment functions start with
+  `adjust_`, validation functions start with `validate_`, and measurement
+  functions start with `measure_`.
+- Promoted reusable v07 validation workflows into exported
+  `validate_flow_*()` helpers when they operate on ordinary adjusted-flow
+  outputs and benchmark tables, return tidy validation objects, and are useful
+  outside the article: prepared adjusted outputs, method-wise overall metrics,
+  residual diagnostics, distributional diagnostics, residual-structure
+  diagnostics, and origin/destination margins.
+- Kept vignette-local helpers out of the package when they are specific to the
+  article render, such as loading optional cached files, selecting display
+  labels, formatting tables, assembling review-only diagnostics, or managing
+  external data availability.
+- Renamed the exported validation visual prototypes from the older
+  `plot_validation_*()` / `plot_validate_flow_*()` names to
+  `validate_flow_plot_*()` so validation vignette functions consistently start
+  with `validate_`.
+
 1. Switch v07 validation to full LAD support and add reproducible LISA maps - `complete`
 - Completed on 2026-07-02.
 - The validation vignette now fits live deterministic validation examples on
   the full overlapping `debiasRdata` LAD support rather than a 25-area subset.
   The current example has 313 LADs and 97,969 OD rows.
 - Level 5 now uses deterministic nearest-neighbour LAD centroid links for
-  Local Moran/LISA diagnostics and renders `plot_validation_lisa_map()` when a
+  Local Moran/LISA diagnostics and renders `validate_flow_plot_lisa_map()` when a
   cached public ONS 2021 LAD BFC boundary download or user-supplied LAD `sf`
   boundary file is available. Boundary polygons outside the validation support
   are retained in the same grey as not-significant areas, Scottish background
@@ -101,7 +121,7 @@ The staged track below is intended to be implemented one stage per chat window. 
 
 1. Add validation visual prototype functions - `complete`
 - Completed on 2026-06-13.
-- Added exported prototype `plot_validation_*()` functions for overall metric
+- Added exported prototype `validate_flow_plot_*()` functions for overall metric
   matrices, residual violin plots, pairwise flow scatterplots,
   standard-deviation and quantile residual outlier stacked bars,
   distributional allocation heatmaps, pairwise divergence matrices, and
@@ -114,7 +134,7 @@ The staged track below is intended to be implemented one stage per chat window. 
   `notes/project-management/VALIDATION_VISUAL_PROTOTYPES.qmd` using
   deterministic simulated package data so the chart designs can be iterated
   before promotion into the public validation vignette.
-- Decision recorded on 2026-06-19: the `plot_validation_*()` functions will be
+- Decision recorded on 2026-06-19: the `validate_flow_plot_*()` functions will be
   incorporated into the existing validation vignette. There will not be a
   separate validation-visualisation vignette; the visual prototype notebook and
   rendered notes are internal design/review material.
@@ -330,8 +350,8 @@ Tasks:
 - Implemented residual-versus-user-selected-covariate Pearson correlation and optional scatter plot.
 - Decision: covariates are passed as a plain area-level data frame plus explicit area and covariate column names.
 - Maintainer review decision: treat `validate_flow_residual_structure()` as stable public API immediately.
-- Maintainer review decision: keep optional diagnostic plots inside the helper for now because they are dependency-light and useful for review; split plotting into separate helpers later only if the plotting surface grows. The current visual prototype now begins that split with package-level `plot_validation_*()` functions.
-- Updated visual-prototype decision: expose LISA cluster mapping separately through `plot_validation_lisa_map()`, requiring users to provide `sf` boundaries rather than bundling or inferring geometries.
+- Maintainer review decision: keep optional diagnostic plots inside the helper for now because they are dependency-light and useful for review; split plotting into separate helpers later only if the plotting surface grows. The current visual prototype now begins that split with package-level `validate_flow_plot_*()` functions.
+- Updated visual-prototype decision: expose LISA cluster mapping separately through `validate_flow_plot_lisa_map()`, requiring users to provide `sf` boundaries rather than bundling or inferring geometries.
 
 5. Add distributional allocation diagnostics.
 - Implemented destination-share distributions by origin for benchmark and adjusted flows.
