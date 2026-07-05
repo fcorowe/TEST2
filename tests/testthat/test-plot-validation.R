@@ -140,30 +140,30 @@ test_that("validation metric matrix plot returns a ggplot", {
   testthat::skip_if_not_installed("ggplot2")
   fixture <- make_validation_plot_fixture()
 
-  plot <- plot_validation_metrics(fixture$overall)
-  all_comparisons_plot <- plot_validation_metrics(
+  plot <- validate_flow_plot_metrics(fixture$overall)
+  all_comparisons_plot <- validate_flow_plot_metrics(
     fixture$overall_all,
     comparisons = "all",
     methods = "method_a"
   )
   wrapped_label_metrics <- fixture$overall$method_a
   wrapped_label_metrics$method <- "unadjusted"
-  wrapped_label_plot <- plot_validation_metrics(
+  wrapped_label_plot <- validate_flow_plot_metrics(
     list(unadjusted = wrapped_label_metrics, method_b = fixture$overall$method_b),
     method_labels = c(unadjusted = "Unadjusted\nraw MPD")
   )
-  selected_plot <- plot_validation_metrics(
+  selected_plot <- validate_flow_plot_metrics(
     fixture$overall,
     error_measures = c("mae", "rmse"),
     methods = "method_a"
   )
-  labelled_measure_plot <- plot_validation_metrics(
+  labelled_measure_plot <- validate_flow_plot_metrics(
     fixture$overall,
     error_measures = c("MAE", "Root mean squared error"),
     methods = "Method B",
     method_labels = c(method_b = "Method B")
   )
-  sorted_plot <- plot_validation_metrics(
+  sorted_plot <- validate_flow_plot_metrics(
     fixture$overall,
     error_measures = c("mae", "rmse"),
     sort = "ascending",
@@ -171,21 +171,20 @@ test_that("validation metric matrix plot returns a ggplot", {
   )
   unadjusted_metrics <- fixture$overall_all$method_a
   unadjusted_metrics$method <- "unadjusted"
-  raw_deduplicated_plot <- plot_validation_metrics(
+  raw_deduplicated_plot <- validate_flow_plot_metrics(
     list(unadjusted = unadjusted_metrics, method_a = fixture$overall_all$method_a),
     error_measures = c("mae", "rmse"),
     comparisons = c("adjusted_vs_benchmark", "raw_vs_benchmark"),
     method_labels = c(unadjusted = "Unadjusted raw MPD")
   )
-  metric_cols_plot <- plot_validation_metrics(
+  metric_cols_plot <- validate_flow_plot_metrics(
     fixture$overall,
     metric_cols = "mape"
   )
-  custom_break_plot <- plot_validation_metrics(
+  custom_break_plot <- validate_flow_plot_metrics(
     fixture$overall,
     relative_error_breaks = c(0, 50, 100)
   )
-  alias_plot <- plot_validate_flow_metrics(fixture$overall)
 
   expect_s3_class(plot, "ggplot")
   expect_s3_class(all_comparisons_plot, "ggplot")
@@ -195,7 +194,6 @@ test_that("validation metric matrix plot returns a ggplot", {
   expect_s3_class(raw_deduplicated_plot, "ggplot")
   expect_s3_class(metric_cols_plot, "ggplot")
   expect_s3_class(custom_break_plot, "ggplot")
-  expect_s3_class(alias_plot, "ggplot")
   expect_equal(unique(as.character(plot$data$comparison)), "adjusted_vs_benchmark")
   expect_equal(
     sort(unique(as.character(all_comparisons_plot$data$method))),
@@ -258,7 +256,7 @@ test_that("validation metric matrix plot returns a ggplot", {
     c("0-50", "51-100")
   )
   expect_error(
-    plot_validation_metrics(
+    validate_flow_plot_metrics(
       fixture$overall,
       error_measures = "mae",
       metric_cols = "rmse"
@@ -266,7 +264,7 @@ test_that("validation metric matrix plot returns a ggplot", {
     "Use only one of `error_measures` or `metric_cols`"
   )
   expect_error(
-    plot_validation_metrics(
+    validate_flow_plot_metrics(
       fixture$overall,
       relative_error_breaks = c(0, 100, 50)
     ),
@@ -310,8 +308,8 @@ test_that("validation residual violin plot returns a ggplot", {
   testthat::skip_if_not_installed("ggplot2")
   fixture <- make_validation_plot_fixture()
 
-  plot <- plot_validation_residuals(fixture$residuals)
-  all_comparisons_plot <- plot_validation_residuals(
+  plot <- validate_flow_plot_residuals(fixture$residuals)
+  all_comparisons_plot <- validate_flow_plot_residuals(
     fixture$residuals,
     comparisons = c(
       "adjusted_vs_benchmark",
@@ -319,20 +317,20 @@ test_that("validation residual violin plot returns a ggplot", {
       "raw_vs_adjusted"
     )
   )
-  filtered_plot <- plot_validation_residuals(
+  filtered_plot <- validate_flow_plot_residuals(
     fixture$residuals,
     methods = "method_a"
   )
-  labelled_filter_plot <- plot_validation_residuals(
+  labelled_filter_plot <- validate_flow_plot_residuals(
     fixture$residuals,
     methods = "Method B",
     method_labels = c(method_b = "Method B")
   )
-  absolute_plot <- plot_validation_residuals(
+  absolute_plot <- validate_flow_plot_residuals(
     fixture$residuals,
     residual = "absolute"
   )
-  percent_plot <- plot_validation_residuals(
+  percent_plot <- validate_flow_plot_residuals(
     fixture$residuals,
     residual = "percent"
   )
@@ -385,8 +383,8 @@ test_that("validation scatter plot returns a ggplot", {
   testthat::skip_if_not_installed("ggplot2")
   fixture <- make_validation_plot_fixture()
 
-  plot <- plot_validation_scatter(fixture$residuals)
-  all_comparisons_plot <- plot_validation_scatter(
+  plot <- validate_flow_plot_scatter(fixture$residuals)
+  all_comparisons_plot <- validate_flow_plot_scatter(
     fixture$residuals,
     comparisons = c(
       "adjusted_vs_benchmark",
@@ -394,33 +392,33 @@ test_that("validation scatter plot returns a ggplot", {
       "raw_vs_adjusted"
     )
   )
-  benchmark_comparisons_plot <- plot_validation_scatter(
+  benchmark_comparisons_plot <- validate_flow_plot_scatter(
     fixture$residuals,
     comparisons = c("adjusted_vs_benchmark", "raw_vs_benchmark")
   )
-  raw_adjusted_plot <- plot_validation_scatter(
+  raw_adjusted_plot <- validate_flow_plot_scatter(
     fixture$residuals,
     comparisons = "raw_vs_adjusted",
     methods = "method_a"
   )
-  raw_benchmark_plot <- plot_validation_scatter(
+  raw_benchmark_plot <- validate_flow_plot_scatter(
     fixture$residuals,
     comparisons = "raw_vs_benchmark",
     methods = "method_a"
   )
-  plain_plot <- plot_validation_scatter(
+  plain_plot <- validate_flow_plot_scatter(
     fixture$residuals,
     point_outline = FALSE
   )
-  limited_plot <- plot_validation_scatter(
+  limited_plot <- validate_flow_plot_scatter(
     fixture$residuals,
     difference_limits = c(-10, 10)
   )
-  neutral_band_plot <- plot_validation_scatter(
+  neutral_band_plot <- validate_flow_plot_scatter(
     fixture$residuals,
     white_band = 0.2
   )
-  compact_plot <- plot_validation_scatter(
+  compact_plot <- validate_flow_plot_scatter(
     fixture$residuals,
     facet_ncol = 2
   )
@@ -484,23 +482,23 @@ test_that("validation residual band stacked bar plots return ggplots", {
   testthat::skip_if_not_installed("ggplot2")
   fixture <- make_validation_plot_fixture()
 
-  plot <- plot_validation_residual_bands(fixture$residuals)
-  quantile_plot <- plot_validation_residual_bands(
+  plot <- validate_flow_plot_residual_bands(fixture$residuals)
+  quantile_plot <- validate_flow_plot_residual_bands(
     fixture$residuals,
     band_method = "quantile"
   )
-  all_comparisons_plot <- plot_validation_residual_bands(
+  all_comparisons_plot <- validate_flow_plot_residual_bands(
     fixture$residuals,
     comparisons = "all",
     methods = "method_a"
   )
-  vertical_all_comparisons_plot <- plot_validation_residual_bands(
+  vertical_all_comparisons_plot <- validate_flow_plot_residual_bands(
     fixture$residuals,
     comparisons = "all",
     methods = "method_a",
     orientation = "vertical"
   )
-  vertical_plot <- plot_validation_residual_bands(
+  vertical_plot <- validate_flow_plot_residual_bands(
     fixture$residuals,
     orientation = "vertical"
   )
@@ -546,7 +544,7 @@ test_that("residual band plots normalise finite residual bands", {
   residual_data <- debiasR:::.as_validate_residual_data(fixture$residuals)
   residual_data$adj_flow[residual_data$method == "method_a"][1] <- NA_real_
 
-  quantile_plot <- plot_validation_residual_bands(
+  quantile_plot <- validate_flow_plot_residual_bands(
     residual_data,
     band_method = "quantile"
   )
@@ -566,33 +564,33 @@ test_that("distributional validation plots return ggplots", {
   testthat::skip_if_not_installed("ggplot2")
   fixture <- make_validation_plot_fixture()
 
-  summary_plot <- plot_validation_distribution(
+  summary_plot <- validate_flow_plot_distribution(
     fixture$distributions
   )
-  pairwise_plot <- plot_validation_distribution_pairwise(
+  pairwise_plot <- validate_flow_plot_distribution_pairwise(
     fixture$distributions
   )
-  pairwise_heatmap <- plot_validation_distribution_pairwise(
+  pairwise_heatmap <- validate_flow_plot_distribution_pairwise(
     fixture$distributions,
     plot_type = "heatmap"
   )
-  all_comparisons_plot <- plot_validation_distribution(
+  all_comparisons_plot <- validate_flow_plot_distribution(
     fixture$distributions,
     comparisons = "all",
     methods = "method_a"
   )
-  full_pairwise_plot <- plot_validation_distribution_pairwise(
+  full_pairwise_plot <- validate_flow_plot_distribution_pairwise(
     fixture$distributions,
     comparisons = "all",
     methods = "method_a"
   )
-  sorted_pairwise_plot <- plot_validation_distribution_pairwise(
+  sorted_pairwise_plot <- validate_flow_plot_distribution_pairwise(
     fixture$distributions,
     comparisons = c("adjusted_vs_benchmark", "raw_vs_benchmark"),
     methods = c("method_a", "method_b"),
     sort = "ascending"
   )
-  sorted_pairwise_heatmap <- plot_validation_distribution_pairwise(
+  sorted_pairwise_heatmap <- validate_flow_plot_distribution_pairwise(
     fixture$distributions,
     comparisons = c("adjusted_vs_benchmark", "raw_vs_benchmark"),
     methods = c("method_a", "method_b"),
@@ -643,17 +641,17 @@ test_that("residual-structure validation plot returns a ggplot", {
   testthat::skip_if_not_installed("ggplot2")
   fixture <- make_validation_plot_fixture()
 
-  plot <- plot_validation_structure(fixture$structure)
-  filtered_plot <- plot_validation_structure(
+  plot <- validate_flow_plot_structure(fixture$structure)
+  filtered_plot <- validate_flow_plot_structure(
     fixture$structure,
     methods = "method_a"
   )
-  no_band_plot <- plot_validation_structure(
+  no_band_plot <- validate_flow_plot_structure(
     fixture$structure,
     near_zero_band = NULL,
     show_value_labels = FALSE
   )
-  sorted_plot <- plot_validation_structure(
+  sorted_plot <- validate_flow_plot_structure(
     fixture$structure,
     sort = "ascending",
     sort_metric = "pearson_residual_benchmark_flow"
@@ -691,15 +689,15 @@ test_that("residual-structure validation plot returns a ggplot", {
   expect_null(no_band_plot$labels$caption)
   expect_true("value_label" %in% names(plot$data))
   expect_error(
-    plot_validation_structure(fixture$structure, near_zero_band = -0.1),
+    validate_flow_plot_structure(fixture$structure, near_zero_band = -0.1),
     "`near_zero_band` must be `NULL` or a single non-negative finite number"
   )
   expect_error(
-    plot_validation_structure(fixture$structure, show_value_labels = NA),
+    validate_flow_plot_structure(fixture$structure, show_value_labels = NA),
     "`show_value_labels` must be `TRUE` or `FALSE`"
   )
   expect_error(
-    plot_validation_structure(fixture$structure, value_digits = 1.5),
+    validate_flow_plot_structure(fixture$structure, value_digits = 1.5),
     "`value_digits` must be a single non-negative whole number"
   )
 })
@@ -709,7 +707,7 @@ test_that("LISA validation map requires Local Moran output", {
   fixture <- make_validation_plot_fixture()
 
   expect_error(
-    plot_validation_lisa_map(fixture$structure),
+    validate_flow_plot_lisa_map(fixture$structure),
     "`structure_results` must contain: lisa_cluster"
   )
 })
@@ -731,7 +729,7 @@ test_that("LISA validation map plots user-supplied boundaries", {
     crs = 4326
   )
 
-  plot <- plot_validation_lisa_map(
+  plot <- validate_flow_plot_lisa_map(
     fixture$structure_lisa,
     boundaries = boundaries,
     methods = "method_a",
@@ -748,13 +746,13 @@ test_that("LISA validation map plots user-supplied boundaries", {
   expect_true("not significant" %in% as.character(lisa_data$.lisa_cluster))
   expect_true(length(plot$layers) >= 3)
 
-  unmasked_plot <- plot_validation_lisa_map(
+  unmasked_plot <- validate_flow_plot_lisa_map(
     fixture$structure_lisa,
     boundaries = boundaries,
     methods = "method_a",
     p_value_threshold = NULL
   )
-  sorted_plot <- plot_validation_lisa_map(
+  sorted_plot <- validate_flow_plot_lisa_map(
     fixture$structure_lisa,
     boundaries = boundaries,
     methods = c("method_a", "method_b"),
@@ -776,14 +774,14 @@ test_that("LISA validation map plots user-supplied boundaries", {
   )
 
   expect_error(
-    plot_validation_lisa_map(
+    validate_flow_plot_lisa_map(
       fixture$structure_lisa,
       boundaries = data.frame(area = c("A", "B", "C"))
     ),
     "`boundaries` must be an `sf` object"
   )
   expect_error(
-    plot_validation_lisa_map(
+    validate_flow_plot_lisa_map(
       fixture$structure_lisa,
       boundaries = boundaries,
       p_value_col = "missing_p"
@@ -791,7 +789,7 @@ test_that("LISA validation map plots user-supplied boundaries", {
     "`p_value_col` must name a column"
   )
   expect_error(
-    plot_validation_lisa_map(
+    validate_flow_plot_lisa_map(
       fixture$structure_lisa,
       boundaries = boundaries,
       outline_boundaries = data.frame(area = c("A", "B", "C"))

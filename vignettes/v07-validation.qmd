@@ -268,7 +268,7 @@ deterministic_results <- c(
 )
 
 deterministic_method_results <- deterministic_results |>
-  validation_standardize_adjusted_outputs(mpd_df = mpd_od)
+  validate_flow_prepare_outputs(mpd_df = mpd_od)
 ```
 
 Bayesian models take considerably longer to fit than the deterministic
@@ -346,15 +346,15 @@ level1_method_results <- all_method_results[level1_methods]
 
 The `debiasR` function `validate_flow_overall()` calculates error and
 correlation measures across all OD pairs. To apply it to each adjustment
-method, this vignette uses the helper function
-`validation_overall_results()`. Setting
+method, this vignette uses the package helper
+`validate_flow_overall_methods()`. Setting
 `comparisons = "adjusted_vs_benchmark"` compares each result with the
 Census benchmark.
 
 ```{r level1-overall-metrics}
-overall_results <- validation_overall_results(
+overall_results <- validate_flow_overall_methods(
   adjusted_outputs = level1_method_results,
-  benchmark_df = benchmark_od,
+  benchmark_od_df = benchmark_od,
   comparisons = "adjusted_vs_benchmark"
 )
 ```
@@ -365,12 +365,12 @@ closer agreement with the benchmark. The function
 `validate_flow_overall()` also calculates other error measures,
 including mean error, median absolute error and MAPE, as well as
 correlation measures such as Pearson’s correlation and Spearman’s
-correlation. The figure below uses `plot_validation_metrics()` to
+correlation. The figure below uses `validate_flow_plot_metrics()` to
 display MAE and RMSE. The other overall validation measures are retained
 in `overall_results` and can be examined separately.
 
 ```{r level1-metric-plot}
-plot_validation_metrics(
+validate_flow_plot_metrics(
   overall_results,
   error_measures = c("mae", "rmse"),
   comparisons = "adjusted_vs_benchmark",
@@ -382,14 +382,14 @@ plot_validation_metrics(
 ```
 
 ```{r level1-inference-values, include=FALSE}
-level1_best_overall <- validation_best_method(
+level1_best_overall <- validate_best_method(
   overall_results,
   comparison = "adjusted_vs_benchmark",
   metric = "mae",
   methods = level1_methods
 )
 
-level1_best_cor <- validation_best_method(
+level1_best_cor <- validate_best_method(
   overall_results,
   comparison = "adjusted_vs_benchmark",
   metric = "pearson_r",
@@ -439,52 +439,52 @@ validation_methods <- c(
 validation_method_results <- all_method_results[validation_methods]
 ```
 
-The vignette helper `validation_build_marginal_tables()` sums the OD
-flows by origin or destination. The helper
-`validation_overall_results()` then applies the `debiasR` function
+The package helper `validate_flow_margins()` sums the OD
+flows by origin or destination. The package helper
+`validate_flow_overall_methods()` then applies the `debiasR` function
 `validate_flow_overall()` to each method.
 
 ```{r construct-level2-margins}
-origin_margins <- validation_build_marginal_tables(
+origin_margins <- validate_flow_margins(
   adjusted_outputs = validation_method_results,
-  benchmark_df = benchmark_od,
+  benchmark_od_df = benchmark_od,
   role = "origin"
 )
 
-origin_margin_metrics <- validation_overall_results(
+origin_margin_metrics <- validate_flow_overall_methods(
   adjusted_outputs = origin_margins$adjusted_outputs,
-  benchmark_df = origin_margins$benchmark,
+  benchmark_od_df = origin_margins$benchmark,
   comparisons = "adjusted_vs_benchmark"
 )
 
-destination_margins <- validation_build_marginal_tables(
+destination_margins <- validate_flow_margins(
   adjusted_outputs = validation_method_results,
-  benchmark_df = benchmark_od,
+  benchmark_od_df = benchmark_od,
   role = "destination"
 )
 
-destination_margin_metrics <- validation_overall_results(
+destination_margin_metrics <- validate_flow_overall_methods(
   adjusted_outputs = destination_margins$adjusted_outputs,
-  benchmark_df = destination_margins$benchmark,
+  benchmark_od_df = destination_margins$benchmark,
   comparisons = "adjusted_vs_benchmark"
 )
 ```
 
-We produce a first figure to compare origin totals. The vignette helper
-`validation_residual_results()` applies the function
+We produce a first figure to compare origin totals. The package helper
+`validate_flow_residual_methods()` applies the function
 `validate_flow_residuals()` to each method. The function
-`plot_validation_scatter()` plots the results. Each point represents one
+`validate_flow_plot_scatter()` plots the results. Each point represents one
 origin. Points close to the dashed line have similar adjusted and
 benchmark outflows.
 
 ```{r level2-origin-scatter, fig.width=9, fig.height=9}
-origin_margin_residuals <- validation_residual_results(
+origin_margin_residuals <- validate_flow_residual_methods(
   adjusted_outputs = origin_margins$adjusted_outputs,
-  benchmark_df = origin_margins$benchmark,
+  benchmark_od_df = origin_margins$benchmark,
   top_n = 8
 )
 
-plot_validation_scatter(
+validate_flow_plot_scatter(
   origin_margin_residuals,
   comparisons = "adjusted_vs_benchmark",
   methods = validation_methods,
@@ -501,13 +501,13 @@ represents one destination. Points close to the dashed line have similar
 adjusted and benchmark inflows.
 
 ```{r level2-destination-scatter, fig.width=9, fig.height=9}
-destination_margin_residuals <- validation_residual_results(
+destination_margin_residuals <- validate_flow_residual_methods(
   adjusted_outputs = destination_margins$adjusted_outputs,
-  benchmark_df = destination_margins$benchmark,
+  benchmark_od_df = destination_margins$benchmark,
   top_n = 8
 )
 
-plot_validation_scatter(
+validate_flow_plot_scatter(
   destination_margin_residuals,
   comparisons = "adjusted_vs_benchmark",
   methods = validation_methods,
@@ -520,14 +520,14 @@ plot_validation_scatter(
 ```
 
 ```{r level2-inference-values, include=FALSE}
-level2_origin_best <- validation_best_method(
+level2_origin_best <- validate_best_method(
   origin_margin_metrics,
   comparison = "adjusted_vs_benchmark",
   metric = "mae",
   methods = validation_methods
 )
 
-level2_destination_best <- validation_best_method(
+level2_destination_best <- validate_best_method(
   destination_margin_metrics,
   comparison = "adjusted_vs_benchmark",
   metric = "mae",
@@ -550,19 +550,19 @@ errors. We continue with the four adjustment results selected in Level
 
 The function `validate_flow_residuals()` calculates signed and absolute
 residuals for every OD pair. It also identifies the OD pairs with the
-largest remaining errors. The vignette helper
-`validation_residual_results()` applies this function to each adjustment
+largest remaining errors. The package helper
+`validate_flow_residual_methods()` applies this function to each adjustment
 method.
 
 ```{r level3-residual-summary}
-flow_residuals <- validation_residual_results(
+flow_residuals <- validate_flow_residual_methods(
   adjusted_outputs = validation_method_results,
-  benchmark_df = benchmark_od,
+  benchmark_od_df = benchmark_od,
   top_n = 12
 )
 ```
 
-We first use the function `plot_validation_scatter()` to compare the
+We first use the function `validate_flow_plot_scatter()` to compare the
 adjusted and benchmark flow for every OD pair. Each point represents one
 origin-destination pair. Points on or near the dashed line have similar
 adjusted and benchmark flows. Points farther from the line have larger
@@ -573,7 +573,7 @@ above the benchmark. Point colour shows this direction and stronger
 colours indicate larger differences.
 
 ```{r level3-flow-scatter, fig.width=9, fig.height=9}
-plot_validation_scatter(
+validate_flow_plot_scatter(
   flow_residuals,
   comparisons = "adjusted_vs_benchmark",
   methods = validation_methods,
@@ -585,7 +585,7 @@ plot_validation_scatter(
 )
 ```
 
-The exported `plot_validation_residual_bands()` function provides a
+The exported `validate_flow_plot_residual_bands()` function provides a
 complementary visualisation. It groups OD pairs according to the
 absolute size of their residuals, measured in standard-deviation bands.
 Larger shares in the lower residual bands indicate that more OD pairs
@@ -595,7 +595,7 @@ by the share of OD pairs in the highest residual band, while the
 unadjusted MPD flows remain at the bottom as a reference.
 
 ```{r level3-residual-bands}
-plot_validation_residual_bands(
+validate_flow_plot_residual_bands(
   flow_residuals,
   comparisons = "adjusted_vs_benchmark",
   methods = validation_methods,
@@ -624,26 +624,26 @@ Jensen-Shannon divergence. The Jensen-Shannon divergence provides a
 symmetric measure of the difference between two distributions. Lower
 values indicate that the adjusted and benchmark destination shares are
 more similar. A value of zero would mean that they have identical
-destination shares. The vignette helper
-`validation_distribution_results()` applies this function to each
+destination shares. The package helper
+`validate_flow_distribution_methods()` applies this function to each
 adjustment method.
 
 ```{r level4-distribution-summary}
-distribution_results <- validation_distribution_results(
+distribution_results <- validate_flow_distribution_methods(
   adjusted_outputs = validation_method_results,
-  benchmark_df = benchmark_od,
+  benchmark_od_df = benchmark_od,
   comparisons = "adjusted_vs_benchmark"
 )
 ```
 
-The function `plot_validation_distribution_pairwise()` displays the
+The function `validate_flow_plot_distribution_pairwise()` displays the
 benchmark-weighted mean Jensen-Shannon divergence for each method. The
 weighting gives more influence to origins with larger benchmark
 outflows. The methods are ordered from lowest to highest divergence,
 while the unadjusted MPD flows remain at the bottom as a reference.
 
 ```{r level4-distribution-pairwise, fig.width=9, fig.height=6}
-plot_validation_distribution_pairwise(
+validate_flow_plot_distribution_pairwise(
   distribution_results,
   metric = "jsd",
   value = "weighted_mean",
@@ -672,7 +672,7 @@ level4_best <- distribution_summary_tbl |>
     with_ties = FALSE
   ) |>
   dplyr::pull(method) |>
-  validation_method_label()
+  validate_method_label()
 ```
 
 To summarise the comparison, we identify the method with the lowest
@@ -696,7 +696,7 @@ characteristics. We propose three types of tests for residual structure:
 
 In this example, the area covariate is the percentage of residents with
 Level 4 qualifications or above (`per_level4`). The spatial clustering checks require a definition of which areas are
-neighbours. The vignette helper `validation_prepare_lad_lisa_inputs()`
+neighbours. The vignette helper `validate_prepare_lad_lisa_inputs()`
 constructs reproducible links between each LAD and its four nearest
 neighbours using the centroid distances returned by
 `debiasR_example_data()`. These are distance-based neighbours. The helper also looks for the LAD boundaries used by the map. It uses a
@@ -704,7 +704,7 @@ public ONS 2021 boundary file or a local boundary file supplied through
 `DEBIAS_LAD_BOUNDARY_PATH`.
 
 ```{r prepare-residual-structure-inputs}
-validation_lisa_inputs <- validation_prepare_lad_lisa_inputs(
+validation_lisa_inputs <- validate_prepare_lad_lisa_inputs(
   areas = covariates_validation$area,
   distance_df = distance_validation,
   distance_k = 4
@@ -724,15 +724,19 @@ cat(validation_lisa_inputs$note, "\n")
 
 The `debiasR` function `validate_flow_residual_structure()` calculates
 the residual-flow correlation, Moran’s I, Local Moran’s I and the
-residual-covariate correlation. The vignette helper
-`validation_structure_results()` applies this function to each of the
+residual-covariate correlation. The package helper
+`validate_flow_residual_structure_methods()` applies this function to each of the
 four adjustment results.
 
 ```{r level5-residual-structure}
-residual_structure <- validation_structure_results(
+residual_structure <- validate_flow_residual_structure_methods(
   adjusted_outputs = validation_method_results,
-  benchmark_df = benchmark_od,
+  benchmark_od_df = benchmark_od,
+  comparison = "adjusted_vs_benchmark",
+  spatial_role = "origin",
+  residual_aggregation = "mean",
   area_neighbors = structure_neighbors,
+  local_moran = TRUE,
   covariate_df = structure_covariates,
   covariate_col = "per_level4",
   methods = validation_methods,
@@ -741,13 +745,13 @@ residual_structure <- validation_structure_results(
 )
 ```
 
-The function `plot_validation_structure()` summarises the three level 5 tests proposed above. A residual-flow correlation close to zero indicates that
+The function `validate_flow_plot_structure()` summarises the three level 5 tests proposed above. A residual-flow correlation close to zero indicates that
 errors do not have an obvious linear relationship with benchmark flow
 size. A residual-covariate correlation close to zero indicates less
 evidence of a linear relationship with the selected area characteristic. For the spatial clustering test, we look at Moran’s $I$, which measures whether neighbouring areas have similar residuals. Positive values indicate spatial clustering, while values near zero indicate less evidence of an overall spatial pattern.
 
 ```{r level5-structure-plot}
-plot_validation_structure(
+validate_flow_plot_structure(
   residual_structure,
   methods = validation_methods,
   method_labels = validation_plot_method_labels
@@ -759,7 +763,7 @@ Moran’s $I$ examines each area separately and assigns it to a Local
 Indicators of Spatial Association (LISA) class. For the adjusted-versus-benchmark comparison, positive residuals mean that adjusted flows are below the benchmark and negative residuals mean that they are above it. Therefore, a high-high area in a LISA map has a positive
 residual and is surrounded by areas with positive residuals. A low-low
 area has a negative residual and is surrounded by areas with negative
-residuals. High-low and low-high areas are local spatial outliers. The function `plot_validation_lisa_map()` maps these local patterns.
+residuals. High-low and low-high areas are local spatial outliers. The function `validate_flow_plot_lisa_map()` maps these local patterns.
 Areas without evidence of local spatial association at the selected
 threshold are shown as not significant. The map uses raw permutation
 pseudo $p$-values of 0.05, so it should be treated as an exploratory
@@ -769,7 +773,7 @@ screen rather than a multiple-testing-adjusted decision rule.
 if (is.null(validation_lisa_boundaries)) {
   cat(validation_lisa_map_note, "\n")
 } else {
-  plot_validation_lisa_map(
+  validate_flow_plot_lisa_map(
     residual_structure,
     boundaries = validation_lisa_boundaries,
     boundary_area_col = "area",
@@ -838,7 +842,7 @@ quantitative factors:
 The table below states which adjustment methods are used in this vignette and the data inputs required by each of them. Not all methods learn from the same information. Yet, for illustration purposes, we still validate all outputs on the same benchmark OD table and the same OD rows.
 
 ```{r method-inputs, echo=FALSE}
-validation_display_method_inputs(
+validate_display_method_inputs(
   methods = unique(c(level1_methods, validation_methods))
 )
 ```

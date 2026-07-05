@@ -1060,7 +1060,7 @@
 #'
 #' @return A `ggplot` object.
 #' @export
-plot_validation_metrics <- function(metrics,
+validate_flow_plot_metrics <- function(metrics,
                                     error_measures = c("mae", "rmse", "mape"),
                                     metric_cols = NULL,
                                     comparisons = "adjusted_vs_benchmark",
@@ -1300,17 +1300,11 @@ plot_validation_metrics <- function(metrics,
   plot
 }
 
-#' @rdname plot_validation_metrics
-#' @export
-plot_validate_flow_metrics <- function(...) {
-  plot_validation_metrics(...)
-}
-
 #' Plot validation flow-difference distributions as violins
 #'
 #' Builds violin plots from `validate_flow_residuals()` data. Differences are
 #' aligned with the scatterplot convention used by
-#' `plot_validation_scatter()`: positive values mean the second named series is
+#' `validate_flow_plot_scatter()`: positive values mean the second named series is
 #' larger than the first named series. The default style uses translucent
 #' violins, jittered OD-pair points, and sample-size labels above each method.
 #'
@@ -1355,7 +1349,7 @@ plot_validate_flow_metrics <- function(...) {
 #'
 #' @return A `ggplot` object.
 #' @export
-plot_validation_residuals <- function(residuals,
+validate_flow_plot_residuals <- function(residuals,
                                       residual = c("signed", "absolute", "percent"),
                                       comparisons = "adjusted_vs_benchmark",
                                       methods = NULL,
@@ -1515,12 +1509,6 @@ plot_validation_residuals <- function(residuals,
   plot
 }
 
-#' @rdname plot_validation_residuals
-#' @export
-plot_validate_flow_residual_violin <- function(...) {
-  plot_validation_residuals(...)
-}
-
 #' Plot validation scatterplots for raw, adjusted, and benchmark flows
 #'
 #' Builds faceted scatterplots from `validate_flow_residuals()` data. The
@@ -1570,7 +1558,7 @@ plot_validate_flow_residual_violin <- function(...) {
 #'
 #' @return A `ggplot` object.
 #' @export
-plot_validation_scatter <- function(residuals,
+validate_flow_plot_scatter <- function(residuals,
                                     comparisons = "adjusted_vs_benchmark",
                                     methods = NULL,
                                     method_col = "method",
@@ -1796,12 +1784,6 @@ plot_validation_scatter <- function(residuals,
     )
 }
 
-#' @rdname plot_validation_scatter
-#' @export
-plot_validate_flow_scatter <- function(...) {
-  plot_validation_scatter(...)
-}
-
 #' Plot residual outlier bands as stacked bars
 #'
 #' Summarises absolute flow-comparison differences into residual
@@ -1853,7 +1835,7 @@ plot_validate_flow_scatter <- function(...) {
 #'
 #' @return A `ggplot` object.
 #' @export
-plot_validation_residual_bands <- function(residuals,
+validate_flow_plot_residual_bands <- function(residuals,
                                            method_col = "method",
                                            method_labels = NULL,
                                            comparisons = "adjusted_vs_benchmark",
@@ -2200,12 +2182,6 @@ plot_validation_residual_bands <- function(residuals,
   plot
 }
 
-#' @rdname plot_validation_residual_bands
-#' @export
-plot_validate_flow_residual_heatmap <- function(...) {
-  plot_validation_residual_bands(...)
-}
-
 #' Plot distributional allocation validation as a method heatmap
 #'
 #' Plots KL or Jensen-Shannon divergence summaries from
@@ -2232,7 +2208,7 @@ plot_validate_flow_residual_heatmap <- function(...) {
 #'
 #' @return A `ggplot` object.
 #' @export
-plot_validation_distribution <- function(distribution_results,
+validate_flow_plot_distribution <- function(distribution_results,
                                          metric = c("jsd", "kl"),
                                          value = c("mean", "weighted_mean", "median"),
                                          comparisons = "adjusted_vs_benchmark",
@@ -2332,12 +2308,6 @@ plot_validation_distribution <- function(distribution_results,
     )
 }
 
-#' @rdname plot_validation_distribution
-#' @export
-plot_validate_flow_distribution_heatmap <- function(...) {
-  plot_validation_distribution(...)
-}
-
 #' Plot pairwise distributional allocation divergences
 #'
 #' Builds an intuitive method-by-comparison divergence chart from
@@ -2374,7 +2344,7 @@ plot_validate_flow_distribution_heatmap <- function(...) {
 #'
 #' @return A `ggplot` object.
 #' @export
-plot_validation_distribution_pairwise <- function(distribution_results,
+validate_flow_plot_distribution_pairwise <- function(distribution_results,
                                                   metric = c("jsd", "kl"),
                                                   value = c("mean", "weighted_mean", "median"),
                                                   comparisons = "adjusted_vs_benchmark",
@@ -2583,13 +2553,6 @@ plot_validation_distribution_pairwise <- function(distribution_results,
     )
 }
 
-#' @rdname plot_validation_distribution_pairwise
-#' @export
-plot_validate_flow_distribution_pairwise_heatmap <- function(...,
-                                                             plot_type = "heatmap") {
-  plot_validation_distribution_pairwise(..., plot_type = plot_type)
-}
-
 #' Plot residual-structure validation metrics
 #'
 #' Plots the scalar diagnostics returned by
@@ -2624,7 +2587,7 @@ plot_validate_flow_distribution_pairwise_heatmap <- function(...,
 #'
 #' @return A `ggplot` object.
 #' @export
-plot_validation_structure <- function(structure_results,
+validate_flow_plot_structure <- function(structure_results,
                                       comparisons = "adjusted_vs_benchmark",
                                       methods = NULL,
                                       method_col = "method",
@@ -2937,12 +2900,6 @@ plot_validation_structure <- function(structure_results,
   plot
 }
 
-#' @rdname plot_validation_structure
-#' @export
-plot_validate_flow_structure <- function(...) {
-  plot_validation_structure(...)
-}
-
 #' Plot validation LISA indicators on user-supplied boundaries
 #'
 #' Maps residual-derived Local Moran/LISA cluster classes returned by
@@ -3001,7 +2958,7 @@ plot_validate_flow_structure <- function(...) {
 #'
 #' @return A `ggplot` object.
 #' @export
-plot_validation_lisa_map <- function(structure_results,
+validate_flow_plot_lisa_map <- function(structure_results,
                                      boundaries,
                                      boundary_area_col = "area",
                                      area_col = "area",
