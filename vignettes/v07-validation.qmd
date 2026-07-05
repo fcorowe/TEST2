@@ -1,13 +1,9 @@
 ---
 title: "Validation"
-description: >
-  Compare adjusted mobile-phone-derived origin-destination flows with benchmark
-  flows across overall, marginal, OD-pair, distributional allocation, and
-  residual-structure diagnostics.
 vignette: >
   %\VignetteIndexEntry{Validation}
-  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
 format:
   html:
     html-math-method: mathml
@@ -16,6 +12,9 @@ execute:
   echo: true
   warning: false
   message: false
+editor:
+  markdown:
+    wrap: 72
 ---
 
 ```{=html}
@@ -29,11 +28,48 @@ table.validation-table-small,
 .template-quarto .validation-table-small {
   font-size: 13px;
 }
+.validation-table-small table {
+  width: 100%;
+  table-layout: fixed;
+}
+.validation-table-small col:nth-child(1) {
+  width: 22% !important;
+}
+.validation-table-small col:nth-child(2) {
+  width: 48% !important;
+}
+.validation-table-small col:nth-child(3) {
+  width: 30% !important;
+}
+.validation-table-small th:nth-child(1),
+.validation-table-small td:nth-child(1) {
+  width: 22%;
+}
+.validation-table-small th:nth-child(2),
+.validation-table-small td:nth-child(2) {
+  width: 48%;
+}
+.validation-table-small th:nth-child(3),
+.validation-table-small td:nth-child(3) {
+  width: 30%;
+  font-size: 12px;
+}
 .validation-table-compact,
 .validation-table-compact table,
 table.validation-table-compact,
 .template-quarto .validation-table-compact {
   font-size: 13.5px;
+}
+.key-point-box {
+  margin: 1.25rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid #d8dee6;
+  border-left: 4px solid #446e9b;
+  border-radius: 4px;
+  background: #f7f9fb;
+}
+.key-point-box > :last-child {
+  margin-bottom: 0;
 }
 </style>
 ```
@@ -41,103 +77,111 @@ table.validation-table-compact,
 ## Aim
 
 This vignette describes how to use the `debiasR` functions to assess and
-validate the resulting adjusted mobile-phone-derived origin-destination
-(OD) flows from one of the adjustment methods included in `debiasR`
-against a set of target benchmark flows (i.e. adjusted *versus*
-benchmark flows). This tells us how close the final adjusted output is
-to a chosen target benchmark. The comparison between adjusted *versus*
-benchmark flows is the primary focus. `debiasR` enables two additional
-comparisons:
+validate adjusted origin-destination (OD) flows derived from mobile
+phone data. The validation procedures compare the outcome of the bias
+adjustment methods included in `debiasR` against a set of target
+benchmark flows (i.e. adjusted *versus* benchmark flows). This tells us
+how close the final adjusted output is to a chosen target benchmark.
+While the comparison between adjusted *versus* benchmark flows is the
+primary focus, `debiasR` also enables two additional comparisons: raw
+mobile-phone-derived *versus* benchmark flows, which tells us about the
+extent of bias before adjustment; and raw mobile-phone-derived *versus*
+adjusted flows, which tells us the extent of adjustment applied to the
+original raw data.
 
-- raw mobile-phone-derived *versus* benchmark flows. This tells us the
-  starting extent of bias before adjustment.
-- raw mobile-phone-derived *versus* adjusted flows. This tells us the
-  level of adjustment applied to the original raw data and how much
-  closer a given method moves the flows to the original data.
-
-::: {.callout-note title="Vignette focus"}
-This vignette focuses on the use of `debiasR` validation functions. It
-does not focus on providing an exhaustive comparison of adjustment
-methods. Such comparison requires a more comprehensive setup. So do not
-take the results provided here as evidence to prefer one model over
-another. A key issue to have in mind is that we are comparing
-benchmark-assisted methods (which can "see" the target benchmark flow
-data) against non-benchmark-assisted Bayesian models (which do not "see"
-these flows).
+::: key-point-box
+**Important!** This vignette focuses on illustrating the use of
+`debiasR` validation functions. The focus is not on providing an
+exhaustive comparison of adjustment methods. Such comparison would
+require a more comprehensive setup. So do not take the results provided
+here as evidence to prefer one model over another. A key issue to note
+is that we are comparing adjustment methods that require benchmark data
+as input (so they can "see" the target benchmark flow data) against
+Bayesian models, which do not require such input.
 :::
 
-## Intuition
+## Intuition {#sec-overview-levels}
 
-The `debiasR` framework to assess adjusted flows is organised based on
-five levels moving, from *coarse* overall summaries across the system of
-flows, to more granular diagnostics at the local area level. In this
-way, `debiasR` recognises the complexity of the assessment process which
-cannot rely on a simple number. Adjusted flows can look good overall
-and still perform poorly for some origins, destinations or individual OD
-pairs.
+To validate adjusted flows, the `debiasR` framework is organised based
+on five validation levels, moving from *coarse* overall checks based on
+summaries across the whole system of flows, to more granular checks at
+the local area level. In this way, `debiasR` recognises the complexity
+of the validation process, which cannot rely on a single number.
+Adjusted flows can look good overall and still perform poorly for some
+origins, destinations or individual OD pairs. In particular, we work
+with five validation levels.
 
-This vignette uses five levels.
+-   **Level 1** summarises performance across the whole OD system. This
+    tells us whether a method is broadly close to the benchmark.
+-   **Level 2** compares origin and destination totals, checking whether
+    adjusted flows reproduce total outflows from each origin and total
+    inflows to each destination.
+-   **Level 3** compares individual OD pairs, showing where large local
+    errors remain after adjustment.
+-   **Level 4** assesses whether each origin allocates its flows across
+    destinations in a similar way to the benchmark. This is about the
+    shares across destinations, not only about the total scale.
+-   **Level 5** checks whether remaining residuals show systematic
+    patterns after adjustment. For example, residuals may be larger for
+    large benchmark flows, clustered across neighbouring areas, or
+    associated with an area covariate.
 
-**Level 1** summarises performance across the whole OD system. This tells us
-whether a method is broadly close to the benchmark.
+At each level, it is useful to separate error metrics from correlation
+metrics. Error metrics help us understand whether the numbers are close
+in magnitude, whereas correlation metrics tell us whether the broader
+data pattern is similar. A method can have a high correlation with the
+benchmark and still be too high or too low in absolute terms.
 
-**Level 2** compares origin and destination totals. This checks whether adjusted
-flows reproduce total outflows from each origin and total inflows to each
-destination.
-
-**Level 3** compares individual OD pairs. This shows where large local errors
-remain after adjustment.
-
-**Level 4** assesses whether each origin allocates its flows across destinations
-in a similar way to the benchmark. This is about destination shares within
-origins, not only total scale.
-
-**Level 5** checks whether remaining residuals still show structure after
-adjustment. For example, residuals may be larger for large benchmark flows,
-clustered across neighbouring areas, or associated with an area covariate.
-
-At each level, it is useful to separate error metrics from correlation metrics.
-Error metrics tell us whether the numbers are close in size. Correlation
-metrics tell us whether the broad pattern is similar. Both matter. A method can
-have a high correlation with the benchmark and still be too high or too low in
-absolute terms.
-
-## Validation measures
+## List of validation measures {#sec-list-measures}
 
 Let $F^{adj}_{ij}$ be the adjusted flow from origin $i$ to destination
-$j$, and let $F^{bench}_{ij}$ be the benchmark flow for the same OD pair.
-Define the error as
-$e_{ij} = F^{adj}_{ij} - F^{bench}_{ij}$. Positive errors mean the adjusted
-flow is larger than the benchmark. Negative errors mean it is smaller. The
-table uses adjusted-versus-benchmark notation.[^validation-measure-reuse]
+$j$, and let $F^{bench}_{ij}$ be the benchmark flow for the same OD
+pair. Define the error as $e_{ij} = F^{adj}_{ij} - F^{bench}_{ij}$.
+Positive errors mean that the adjusted flow is larger than the benchmark
+and negative errors that it is smaller. The table uses
+adjusted-versus-benchmark notation.[^1]
 
-::: {.validation-table-small}
+[^1]: The equations are written for adjusted-versus-benchmark flows. The
+    same formulas can be reused for raw-versus-benchmark or
+    raw-versus-adjusted comparisons by replacing $F^{adj}_{ij}$ and
+    $F^{bench}_{ij}$ with the two flow columns being compared.
+
+::: validation-table-small
 | Metric | Description | Equation |
-|:--|:--|:--|
-| Mean error | Average signed error; shows whether flows are overestimated or underestimated on average. | $\frac{1}{n}\sum_{ij} e_{ij}$ |
-| Mean absolute error | Average absolute error; shows the typical size of the error, ignoring sign. | $\frac{1}{n}\sum_{ij} \lvert e_{ij} \rvert$ |
-| Root mean squared error | Error metric that gives more weight to large errors. | $\sqrt{\frac{1}{n}\sum_{ij} e_{ij}^{2}}$ |
+|:-----------------------|:-----------------------|:-----------------------|
+| Mean error | Average signed error; shows whether flows are overestimated or underestimated on average. | $\dfrac{1}{n}\sum_{ij} e_{ij}$ |
+| Mean absolute error | Average absolute error; shows the typical size of the error, ignoring sign. | $\dfrac{1}{n}\sum_{ij} \lvert e_{ij} \rvert$ |
+| Root mean squared error | Error metric that gives more weight to large errors. | $\sqrt{\dfrac{1}{n}\sum_{ij} e_{ij}^{2}}$ |
 | Median absolute error | Middle absolute error; less affected by a small number of very large errors. | $\mathrm{median}(\lvert e_{ij} \rvert)$ |
-| Mean absolute percentage error | Average absolute error as a percentage of the benchmark flow. | $\frac{100}{n}\sum_{ij}\lvert \frac{e_{ij}}{F^{bench}_{ij}} \rvert$ |
-| Pearson's r | Linear correlation; shows whether large benchmark flows also tend to be large adjusted flows. | $\mathrm{cor}(F^{adj}_{ij}, F^{bench}_{ij})$ |
-| Spearman's rho | Rank correlation; shows whether the ordering of flows is similar. | $\mathrm{cor}(\mathrm{rank}(F^{adj}_{ij}), \mathrm{rank}(F^{bench}_{ij}))$ |
-| Kullback-Leibler divergence | Level 4 metric. Directional difference between origin-conditioned destination-share distributions. Lower values mean the comparison flow allocates destinations more like the reference flow. | $\sum_i\sum_j p^{ref}_{j\mid i}\log\frac{p^{ref}_{j\mid i}}{p^{comp}_{j\mid i}}$ |
-| Jensen-Shannon divergence | Level 4 metric. Symmetric companion to KL divergence for the same origin-conditioned destination-share distributions. Lower values mean closer allocation. | $\frac{1}{2} KL(p^{ref}\mid\mid m) + \frac{1}{2} KL(p^{comp}\mid\mid m)$ |
-| Residual-versus-benchmark-flow correlation | Level 5 diagnostic. Association between remaining residuals and benchmark flow size. Values near zero suggest less obvious scale dependence. | $\mathrm{cor}(e_{ij}, F^{bench}_{ij})$ |
-| Moran's I | Level 5 diagnostic. Spatial autocorrelation in area-level residuals using user-supplied neighbour links $w_{ik}$. Positive values suggest neighbouring areas have similar residuals. | $\frac{n}{W}\frac{\sum_i\sum_k w_{ik}(\bar e_i-\bar e)(\bar e_k-\bar e)}{\sum_i(\bar e_i-\bar e)^2}$ |
-| Local Moran's I and LISA class | Level 5 diagnostic. Local spatial association for each area, with permutation pseudo p-values and cluster classes such as high-high, low-low, high-low and low-high. | $\frac{(\bar e_i-\bar e)\sum_k w_{ik}(\bar e_k-\bar e)}{\sum_i(\bar e_i-\bar e)^2/n}$ |
-| Residual-versus-covariate correlation | Level 5 diagnostic. Association between area-level residuals and a selected area covariate $x_i$. Values near zero suggest less obvious covariate-linked error. | $\mathrm{cor}(\bar e_i, x_i)$ |
+| Mean absolute percentage error | Average absolute error as a percentage of the benchmark flow. | $\dfrac{100}{n}\sum_{ij}\lvert \dfrac{e_{ij}}{F^{bench}_{ij}} \rvert$ |
+| Pearson's $r$ | Linear correlation; shows whether large benchmark flows also tend to be large adjusted flows. | $\mathrm{cor}(F^{adj}_{ij}, F^{bench}_{ij})$ |
+| Spearman's $\rho$ | Rank correlation; shows whether the ordering of flows is similar. | $\mathrm{cor}(\mathrm{rank}(F^{adj}_{ij}), \mathrm{rank}(F^{bench}_{ij}))$ |
+| Kullback-Leibler divergence | \[Level 4\] Directional difference between destination-share distributions. Lower values mean the destinations are allocated more similar to the reference flow. | $\sum_i\sum_j p^{ref}_{j\mid i}\log\dfrac{p^{ref}_{j\mid i}}{p^{comp}_{j\mid i}}$ |
+| Jensen-Shannon divergence | \[Level 4\] Symmetric version of KL divergence. Lower values mean closer allocation. | $\dfrac{1}{2} KL(p^{ref}\mid\mid m) + \dfrac{1}{2} KL(p^{comp}\mid\mid m)$ |
+| Residual-versus-benchmark-flow correlation | \[Level 5\] Association between remaining residuals and benchmark flow size. Values near zero suggest less obvious scale dependence. | $\mathrm{cor}(e_{ij}, F^{bench}_{ij})$ |
+| Moran's $I$ | \[Level 5\] Spatial autocorrelation in area-level residuals using user-supplied neighbour links $w_{ik}$. Positive values suggest neighbouring areas have similar residuals. | $\dfrac{n}{W}\dfrac{\sum_i\sum_k w_{ik}(\bar e_i-\bar e)(\bar e_k-\bar e)}{\sum_i(\bar e_i-\bar e)^2}$ |
+| Local Moran's $I$ and LISA class | \[Level 5\] Local spatial association for each area, with permutation pseudo $p$-values and cluster classes such as high-high, low-low, high-low and low-high. | $\dfrac{(\bar e_i-\bar e)\sum_k w_{ik}(\bar e_k-\bar e)}{\sum_i(\bar e_i-\bar e)^2/n}$ |
+| Residual-versus-covariate correlation | \[Level 5\] Association between area-level residuals and a selected area covariate $x_i$. Values near zero suggest less obvious covariate-linked error. | $\mathrm{cor}(\bar e_i, x_i)$ |
 :::
 
-[^validation-measure-reuse]: The equations are written for
-    adjusted-versus-benchmark flows. The same formulas can be reused for
-    raw-versus-benchmark or raw-versus-adjusted comparisons by replacing
-    $F^{adj}_{ij}$ and $F^{bench}_{ij}$ with the two flow columns being
-    compared.
+## Getting set up
 
-## Getting ready
+::: key-point-box
+**Important!** We illustrate how to implement different validation
+checks for the results of data adjustment methods, across the different
+levels described above. For level 1, we illustrate a broad selection of
+data adjustment methods, which include `inverse_penetration`,
+`selection_rate2`, `coefficient`, `bayes_gravity`,
+`bayes_gravity_education`, `bayes_origin_pool` and the `unadjusted`
+data. These are described in more detail in the [adjustment methods section](#sec-list-adjustment-methods). For simplicity, validation for levels 2-5 is
+illustrated for a narrower selection of adjustment methods, namely
+`inverse_penetration`, `coefficient`, `bayes_gravity_education` and
+`unadjusted`.
+:::
 
-We start by loading the packages used in this vignette.
+We use `debiasR` for adjustment and validation, `debiasRdata` for the
+empirical travel-to-work data and `dplyr` and `ggplot2` for data
+handling and plots.
 
 ```{r load-packages}
 library(debiasR)
@@ -163,10 +207,11 @@ if (is.na(helper_file)) {
 source(helper_file)
 ```
 
-We use the same empirical LAD travel-to-work example introduced in the earlier
-vignettes. `debiasR_example_data()` prepares an aligned full LAD
-origin-destination matrix. It returns raw MPD flows, benchmark flows, coverage
-rates, covariates and distances for the same LAD areas.
+***Prepare the validation data***. We use LAD travel-to-work data
+throughout the vignette. The example combines raw mobile phone-derived
+(MPD) flows with Census benchmark flows and the area information needed
+by the adjustment methods. All methods are evaluated using the same LADs
+and origin-destination pairs.
 
 ```{r load-validation-data}
 example_data <- debiasR_example_data(
@@ -185,19 +230,26 @@ area_names <- covariates_validation |>
   dplyr::select(area, name)
 ```
 
-The validation data contain `r example_data$metadata$n_areas` LADs and
-`r example_data$metadata$n_mpd_od` OD rows.
+The main objects are: `mpd_od`, the raw MPD flows to be adjusted;
+`benchmark_od`, the Census flows used as the validation benchmark;
+`coverage_validation`, population and active-user coverage by area;
+`covariates_validation`, area characteristics used by some adjustment
+methods; `distance_validation`, distances between origins and
+destinations. The resulting data cover `r example_data$metadata$n_areas`
+LADs and `r example_data$metadata$n_mpd_od` origin-destination pairs.
 
-The comparison fits the five deterministic adjustment methods live. The raw
-MPD baseline is included as an unadjusted method, so it can be compared on the
-same rows and with the same validation functions.
+***Create the results to validate.*** We first apply three deterministic
+(non-Bayesian) adjustment methods that will be used in the validation
+examples below. The function `adjust_all_methods()` applies the selected
+methods to the same input data and returns a separate OD table for each
+method. We also retain the original MPD flows as an unadjusted baseline.
+This allows us to compare each adjusted result with both the Census
+benchmark and the data before adjustment.
 
 ```{r fit-deterministic-methods}
 deterministic_methods <- c(
   "inverse_penetration",
-  "selection_rate",
   "selection_rate2",
-  "raking_ratio",
   "coefficient"
 )
 
@@ -219,110 +271,87 @@ deterministic_method_results <- deterministic_results |>
   validation_standardize_adjusted_outputs(mpd_df = mpd_od)
 ```
 
-`adjust_all_methods()` keeps the deterministic fits in one place. It uses the
-same MPD flows, coverage table, benchmark OD table and covariates for each
-method. The unadjusted row is simply the raw MPD flow copied into `flow_adj`;
-it is the reference starting point before adjustment.
+Bayesian models take considerably longer to fit than the deterministic
+methods, so we do not fit them while rendering this vignette. Instead,
+`debiasR` provides Bayesian adjustment results fitted in advance using
+the same LAD data. The specifications used to produce these results are
+described in the [adjustment methods section](#sec-list-adjustment-methods) down below. The
+following code chunk loads the saved results from the installed package
+and separates them by adjustment method.
 
-The Bayesian rows are read from saved v07 files in `inst/extdata/`. The
-vignette does not refit Bayesian models or run MCMC during render. The main
-comparison uses `coverage_offset` results because those are on a true-flow
-scale. The saved `reduced_form` result is checked but kept out of the five-level
-comparison because it is an MPD-scale counterfactual rather than a true-flow
-estimate.
-
-```{r load-bayesian-validation-rows, include=FALSE}
-bayesian_metadata <- validation_load_v07_bayesian_metadata()
-bayesian_display <- validation_load_v07_bayesian_display()
-bayesian_selection <- validation_load_v07_bayesian_selection()
-validation_assert_bayesian_fingerprint(
-  metadata = bayesian_metadata,
-  mpd_df = mpd_od,
-  coverage_df = coverage_validation,
-  covariates_df = covariates_validation,
-  distance_df = distance_validation
+```{r load-bayesian-validation-rows}
+bayesian_file <- system.file(
+  "extdata",
+  "v07-validation-bayesian-adjusted.csv",
+  package = "debiasR"
 )
 
-bayesian_method_results <- validation_load_v07_bayesian_outputs()
-validation_assert_v07_bayesian_bundle(
-  adjusted_outputs = bayesian_method_results,
-  display = bayesian_display,
-  metadata = bayesian_metadata,
-  selection = bayesian_selection
-)
+bayesian_results <- read.csv(bayesian_file)
 
-bayesian_method_results <- bayesian_method_results |>
-  validation_standardize_adjusted_outputs(mpd_df = mpd_od)
+bayesian_method_results <- split(
+  bayesian_results,
+  bayesian_results$method
+)
 ```
 
-The saved Bayesian rows include several `coverage_offset` variants. Level 1
-uses the gravity, gravity plus education, and gravity plus education and origin
-pooling variants. Levels 2 to 5 keep the Bayesian gravity plus education row.
+Then, bring together the results for all the adjustment methods
+described in the [adjustment methods section](#sec-list-adjustment-methods), including those from
+the deterministic methods obtained via `adjust_all_methods()` and from
+the Bayesian methods which we precomputed and just loaded via the code
+chunk above.
 
-```{r assemble-validation-method-set, include=FALSE}
+```{r assemble-validation-method-set}
 all_method_results <- c(deterministic_method_results, bayesian_method_results)
+```
 
+## Validation measures
+
+Next we illustrate how to implement different validation checks for the
+data adjustment methods. We do so across the [different levels described
+above](#sec-overview-levels).
+
+### Level 1: Overall validation metrics
+
+Level 1 compares complete OD tables. We compare the three deterministic
+methods fitted above, three precomputed Bayesian models and the
+unadjusted MPD flows.
+
+```{r}
 level1_methods <- c(
   "unadjusted",
-  setdiff(deterministic_methods, c("selection_rate", "raking_ratio")),
+  deterministic_methods,
   "bayes_gravity",
   "bayes_gravity_education",
   "bayes_origin_pool"
 )
 
-validation_methods <- c(
-  "inverse_penetration",
-  "coefficient",
-  "bayes_gravity_education",
-  "unadjusted"
-)
-
 level1_method_results <- all_method_results[level1_methods]
-validation_method_results <- all_method_results[validation_methods]
-displayed_methods <- unique(c(level1_methods, validation_methods))
-displayed_method_results <- all_method_results[displayed_methods]
 ```
 
-The validation levels use two deliberately small comparison sets. Level 1 keeps
-a broader overall comparison, excluding the selection rate and raking ratio
-outputs and adding Bayesian gravity and Bayesian gravity plus education and
-origin pooling. Levels 2 to 5 then focus on inverse penetration, coefficient
-adjustment, Bayesian gravity plus education and the unadjusted raw MPD
-baseline. The Bayesian rows do not use benchmark OD cells during fitting, so
-their validation scores should be read alongside the model-inputs table at the
-end.
+<!-- Before calculating the validation measures, a hidden check confirms that -->
 
-Before validating, we check that every method output uses the same OD pairs and
-the same raw MPD flow column. This is the main comparability check in the
-vignette.
+<!-- every method contains the same origin-destination pairs and the same -->
 
-```{r validation-row-audit, include=FALSE}
-row_audit <- validation_audit_shared_validation_rows(
-  adjusted_outputs = displayed_method_results,
-  mpd_df = mpd_od,
-  benchmark_df = benchmark_od
-)
-validation_assert_row_audit(row_audit)
-```
+<!-- original MPD flows. This ensures that differences in the results reflect -->
 
-The hidden audit confirms that all methods have the same
-`r nrow(mpd_od)` OD pairs, no missing or extra pairs, and the raw MPD flow
-column matches the same input data. If this check failed, the vignette would
-stop rather than report metrics that mix adjustment performance with data
-construction differences.
+<!-- the adjustment methods rather than differences in the data being -->
 
-The support check covers the `r nrow(mpd_od)` OD rows used for validation.
-Overall metrics below keep zero-flow rows for MAE, RMSE and correlation so that
-methods are compared on the same support. MAPE is interpreted separately
-because percentage errors cannot use zero benchmark flows as denominators.
+<!-- compared. -->
 
-## Level 1: Overall validation metrics
+<!-- All methods are evaluated on the same `r nrow(mpd_od)` OD rows, -->
 
-Level 1 compares whole OD tables. The main adjusted-versus-benchmark comparison
-uses the unadjusted raw MPD baseline, inverse penetration, selection rate II,
-coefficient adjustment and three Bayesian `coverage_offset` variants.
+<!-- including zero-flow rows. MAPE is treated separately because percentage -->
 
-```{r level1-overall-metrics, include=FALSE}
+<!-- errors are undefined when the benchmark flow is zero. -->
+
+The `debiasR` function `validate_flow_overall()` calculates error and
+correlation measures across all OD pairs. To apply it to each adjustment
+method, this vignette uses the helper function
+`validation_overall_results()`. Setting
+`comparisons = "adjusted_vs_benchmark"` compares each result with the
+Census benchmark.
+
+```{r level1-overall-metrics}
 overall_results <- validation_overall_results(
   adjusted_outputs = level1_method_results,
   benchmark_df = benchmark_od,
@@ -330,16 +359,15 @@ overall_results <- validation_overall_results(
 )
 ```
 
-Start with the error metrics. Lower mean absolute error and RMSE mean the
-compared flows are closer in size. The hidden validation object also includes
-signed mean error and MAPE, but the figure focuses on the count-scale error
-metrics that are easiest to compare at this level.
-
-Correlation metrics answer a related but different question. A high Pearson
-correlation means the method keeps the same broad pattern of large and small
-flows as the benchmark. A high Spearman correlation means the ranking of flows is
-similar. A method can have a high correlation and still have large errors if it
-gets the pattern right but the scale wrong.
+We first examine mean absolute error (MAE) and root mean squared error
+(RMSE). Both are measured in flow counts and lower values indicate
+closer agreement with the benchmark. The function
+`validate_flow_overall()` also calculates other error measures,
+including mean error, median absolute error and MAPE, as well as
+correlation measures such as Pearson’s correlation and Spearman’s
+correlation. The figure below uses `plot_validation_metrics()` to
+display MAE and RMSE. The other overall validation measures are retained
+in `overall_results` and can be examined separately.
 
 ```{r level1-metric-plot}
 plot_validation_metrics(
@@ -353,12 +381,6 @@ plot_validation_metrics(
 )
 ```
 
-The plot focuses on MAE and RMSE because they are on the flow-count scale.
-MAPE is useful as a percentage-based check, but it is less helpful beside
-count-scale errors because it behaves differently when benchmark flows are
-small. The adjusted methods are sorted by MAE; the unadjusted raw MPD baseline
-is kept at the bottom as the reference starting point.
-
 ```{r level1-inference-values, include=FALSE}
 level1_best_overall <- validation_best_method(
   overall_results,
@@ -366,6 +388,7 @@ level1_best_overall <- validation_best_method(
   metric = "mae",
   methods = level1_methods
 )
+
 level1_best_cor <- validation_best_method(
   overall_results,
   comparison = "adjusted_vs_benchmark",
@@ -375,24 +398,53 @@ level1_best_cor <- validation_best_method(
 )
 ```
 
-In this example, `r level1_best_overall` has the lowest overall mean absolute
-error against the benchmark. `r level1_best_cor` has the strongest Pearson
-correlation. These are related but not identical statements: one is about
-distance from the benchmark, and the other is about similarity in the overall
-pattern of flows.
+The methods are ordered from lowest to highest MAE. The unadjusted MPD
+flows are kept at the bottom as a reference, regardless of their MAE. In
+this example, `r level1_best_overall` has the lowest overall mean
+absolute error against the benchmark. The strongest Pearson correlation
+would be for `r level1_best_cor`. These measures can be related but one
+is about distance from the benchmark, and the other is about similarity
+in the overall pattern of flows.
 
-## Level 2: Origin and destination marginals
+::: key-point-box
+**Remember!** The Bayesian models do not use benchmark OD flows when
+they are fitted. Some deterministic methods do use benchmark
+information, so this difference should be considered when interpreting
+their validation results.
+:::
 
-Level 2 compares geographical area totals. An **origin marginal** adds together
-all flows leaving each origin. A **destination marginal** adds together all
-flows arriving in each destination. From this point onward, the vignette uses
-four outputs: inverse penetration, coefficient adjustment, Bayesian gravity
-plus education and unadjusted raw MPD.
+### Level 2: Origin and destination marginals
 
-This level is useful because an adjustment can look reasonable overall while
-still overestimating or underestimating the flows of particular areas.
+Level 2 compares flows after aggregating them by geographical area. An
+**origin marginal** is the total flow leaving an area, while a
+**destination marginal** is the total flow entering an area. These
+totals can reveal geographical differences that are hidden by the
+system-wide measures used in Level 1.
 
-```{r level2-origin-marginal-metrics, include=FALSE}
+::: key-point-box
+**Remember!** From this level onwards, we use four results to keep the
+detailed plots more readable. These are `inverse penetration`,
+`coefficient adjustment`, `Bayesian gravity with education` and the
+`unadjusted` MPD baseline.
+:::
+
+```{r select-validation-methods}
+validation_methods <- c(
+  "inverse_penetration",
+  "coefficient",
+  "bayes_gravity_education",
+  "unadjusted"
+)
+
+validation_method_results <- all_method_results[validation_methods]
+```
+
+The vignette helper `validation_build_marginal_tables()` sums the OD
+flows by origin or destination. The helper
+`validation_overall_results()` then applies the `debiasR` function
+`validate_flow_overall()` to each method.
+
+```{r construct-level2-margins}
 origin_margins <- validation_build_marginal_tables(
   adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
@@ -404,9 +456,7 @@ origin_margin_metrics <- validation_overall_results(
   benchmark_df = origin_margins$benchmark,
   comparisons = "adjusted_vs_benchmark"
 )
-```
 
-```{r level2-destination-marginal-metrics, include=FALSE}
 destination_margins <- validation_build_marginal_tables(
   adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
@@ -420,10 +470,12 @@ destination_margin_metrics <- validation_overall_results(
 )
 ```
 
-The scatterplots below show the data behind the marginal metrics. Each point is
-an area total. Points near the dashed line have similar values in the two
-datasets being compared. The colour shows the signed difference, so strong
-colours flag areas where the gap is larger.
+We produce a first figure to compare origin totals. The vignette helper
+`validation_residual_results()` applies the function
+`validate_flow_residuals()` to each method. The function
+`plot_validation_scatter()` plots the results. Each point represents one
+origin. Points close to the dashed line have similar adjusted and
+benchmark outflows.
 
 ```{r level2-origin-scatter, fig.width=9, fig.height=9}
 origin_margin_residuals <- validation_residual_results(
@@ -443,6 +495,10 @@ plot_validation_scatter(
   sort = "ascending"
 )
 ```
+
+We produce a second figure to compare destination totals. Each point
+represents one destination. Points close to the dashed line have similar
+adjusted and benchmark inflows.
 
 ```{r level2-destination-scatter, fig.width=9, fig.height=9}
 destination_margin_residuals <- validation_residual_results(
@@ -470,6 +526,7 @@ level2_origin_best <- validation_best_method(
   metric = "mae",
   methods = validation_methods
 )
+
 level2_destination_best <- validation_best_method(
   destination_margin_metrics,
   comparison = "adjusted_vs_benchmark",
@@ -478,21 +535,26 @@ level2_destination_best <- validation_best_method(
 )
 ```
 
-In this example, `r level2_origin_best` is closest to the benchmark origin
-totals by mean absolute error, while `r level2_destination_best` is closest to
-the benchmark destination totals. If the best method differs between origins
-and destinations, the choice depends on the purpose of the analysis. Commuting
-outflows, service catchments and destination demand do not always place the
-same weight on the two margins.
+In this example, `r level2_origin_best` has the lowest MAE for origin
+totals and `r level2_destination_best` has the lowest MAE for
+destination totals. Generally, an adjustment method may perform
+differently for the two margins because reproducing total outflows does
+not necessarily mean that it also reproduces total inflows.
 
-## Level 3: Individual OD-flow validation
+### Level 3: Individual OD-flow validation
 
-Level 3 compares individual origin-destination pairs. This is the most granular
-validation level and is the best place to inspect large local errors. This
-section keeps the same four-output comparison set used for the marginal
-diagnostics.
+Level 3 compares individual origin-destination pairs. This is the most
+granular validation level and is the best place to inspect large local
+errors. We continue with the four adjustment results selected in Level
+2.
 
-```{r level3-residual-summary, include=FALSE}
+The function `validate_flow_residuals()` calculates signed and absolute
+residuals for every OD pair. It also identifies the OD pairs with the
+largest remaining errors. The vignette helper
+`validation_residual_results()` applies this function to each adjustment
+method.
+
+```{r level3-residual-summary}
 flow_residuals <- validation_residual_results(
   adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
@@ -500,11 +562,15 @@ flow_residuals <- validation_residual_results(
 )
 ```
 
-The next scatterplot compares individual OD pairs. Each point is one OD pair.
-The point colour is the signed difference between the two flows in the panel.
-For adjusted-versus-benchmark panels, this is benchmark minus adjusted flow.
-This makes outliers easier to see: points far from the dashed line and with
-strong colour deserve attention.
+We first use the function `plot_validation_scatter()` to compare the
+adjusted and benchmark flow for every OD pair. Each point represents one
+origin-destination pair. Points on or near the dashed line have similar
+adjusted and benchmark flows. Points farther from the line have larger
+errors. For an adjusted-versus-benchmark comparison, the signed residual
+is benchmark minus adjusted. A positive residual means that the adjusted
+flow is below the benchmark, while a negative residual means that it is
+above the benchmark. Point colour shows this direction and stronger
+colours indicate larger differences.
 
 ```{r level3-flow-scatter, fig.width=9, fig.height=9}
 plot_validation_scatter(
@@ -519,10 +585,14 @@ plot_validation_scatter(
 )
 ```
 
-The residual-band plot summarises how much of the OD table falls into small or
-large residual bands. The residual used here is benchmark minus adjusted flow.
-Lower shares in the high-residual bands indicate fewer large remaining
-OD-pair errors.
+The exported `plot_validation_residual_bands()` function provides a
+complementary visualisation. It groups OD pairs according to the
+absolute size of their residuals, measured in standard-deviation bands.
+Larger shares in the lower residual bands indicate that more OD pairs
+are close to the benchmark. Larger shares in the highest band indicate
+that more OD pairs have severe remaining errors. The methods are ordered
+by the share of OD pairs in the highest residual band, while the
+unadjusted MPD flows remain at the bottom as a reference.
 
 ```{r level3-residual-bands}
 plot_validation_residual_bands(
@@ -539,37 +609,26 @@ plot_validation_residual_bands(
 )
 ```
 
-```{r level3-inference-values, include=FALSE}
-level3_metrics <- validation_overall_results(
-  adjusted_outputs = validation_method_results,
-  benchmark_df = benchmark_od,
-  comparisons = "adjusted_vs_benchmark"
-)
-level3_best <- validation_best_method(
-  level3_metrics,
-  comparison = "adjusted_vs_benchmark",
-  metric = "mae",
-  methods = validation_methods
-)
-```
+### Level 4: Distributional allocation validation
 
-At the individual OD-pair level, `r level3_best` has the lowest mean absolute
-error in this example. The residual-band plot is useful because the average can
-hide a small number of very large local errors.
+Level 4 assesses whether flows from each origin are distributed across
+destinations in similar proportions to the benchmark. For each origin,
+the flows to all destinations are converted into shares that sum to one.
+This separates the pattern of destination choice from the total amount
+of flow. For example, an adjusted origin total could be too large while
+still allocating the correct proportions to each destination.
 
-## Level 4: Distributional allocation validation
+The `debiasR` function `validate_flow_distribution()` compares these
+origin-specific destination shares using Kullback-Leibler divergence and
+Jensen-Shannon divergence. The Jensen-Shannon divergence provides a
+symmetric measure of the difference between two distributions. Lower
+values indicate that the adjusted and benchmark destination shares are
+more similar. A value of zero would mean that they have identical
+destination shares. The vignette helper
+`validation_distribution_results()` applies this function to each
+adjustment method.
 
-The previous levels compare scale, residuals and outliers. Level 4 asks a
-different question: whether each output sends each origin's flows to
-destinations in similar proportions to the benchmark OD matrix.
-
-This is an origin-conditioned allocation check. For each origin, flows are
-converted into destination shares. The method is then assessed on whether those
-shares resemble the benchmark shares. This matters because a method can improve
-the total scale of flows while still allocating an origin's flows to the wrong
-destinations.
-
-```{r level4-distribution-summary, include=FALSE}
+```{r level4-distribution-summary}
 distribution_results <- validation_distribution_results(
   adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
@@ -577,11 +636,11 @@ distribution_results <- validation_distribution_results(
 )
 ```
 
-The comparison plot below uses weighted Jensen-Shannon divergence to show which
-pairs of flow distributions are closest after converting flows into
-origin-conditioned destination shares. Lower values mean the destination-share
-distribution is closer to the reference distribution. The weighted version gives
-more influence to origins with larger benchmark outflows.
+The function `plot_validation_distribution_pairwise()` displays the
+benchmark-weighted mean Jensen-Shannon divergence for each method. The
+weighting gives more influence to origins with larger benchmark
+outflows. The methods are ordered from lowest to highest divergence,
+while the unadjusted MPD flows remain at the bottom as a reference.
 
 ```{r level4-distribution-pairwise, fig.width=9, fig.height=6}
 plot_validation_distribution_pairwise(
@@ -597,43 +656,52 @@ plot_validation_distribution_pairwise(
 ```
 
 ```{r level4-inference-values, include=FALSE}
-distribution_summary_tbl <- dplyr::bind_rows(lapply(names(distribution_results), function(method_id) {
-  out <- distribution_results[[method_id]]$summary
-  out$method <- method_id
-  out
-}))
+distribution_summary_tbl <- dplyr::bind_rows(
+  lapply(names(distribution_results), function(method_id) {
+    out <- distribution_results[[method_id]]$summary
+    out$method <- method_id
+    out
+  })
+)
+
 level4_best <- distribution_summary_tbl |>
   dplyr::filter(comparison == "adjusted_vs_benchmark") |>
-  dplyr::slice_min(jsd_weighted_mean, n = 1, with_ties = FALSE) |>
+  dplyr::slice_min(
+    jsd_weighted_mean,
+    n = 1,
+    with_ties = FALSE
+  ) |>
   dplyr::pull(method) |>
   validation_method_label()
 ```
 
-In this example, `r level4_best` has the lowest benchmark-weighted
-Jensen-Shannon divergence in the adjusted-versus-benchmark comparison. This is
-not the same as having the lowest OD-flow error. It means the method is closest
-to the benchmark in terms of the destination shares sent from each origin.
+To summarise the comparison, we identify the method with the lowest
+benchmark-weighted Jensen-Shannon divergence. In this example,
+`r level4_best` has the lowest benchmark-weighted Jensen-Shannon
+divergence. This means that its destination shares are the closest to
+the benchmark shares. It does not necessarily mean that the method has
+the smallest errors in individual flow values or total flow magnitude.
 
-## Level 5: Spatial and residual-structure diagnostics
+### Level 5: Spatial and residual-structure diagnostics
 
-The previous levels can show that an adjustment improves average error, area
-totals, individual OD pairs and destination-share allocation. Level 5 asks
-whether the remaining residuals still look systematic.
+Level 5 assesses wether the error measures between the adjusted flows
+and the reference flows follow systematic patterns. A method may perform
+well on average while still producing errors that are associated with
+flow size, concentrated in neighbouring areas or related to area
+characteristics. We propose three types of tests for residual structure:
 
-Here we check three simple structures. First, are residuals associated with the
-size of benchmark flows? Second, are origin-level residuals spatially clustered
-across neighbouring areas? Third, are origin-level residuals associated with a
-known area covariate? In this example, the covariate is the percentage of
-residents with Level 4 qualifications or above (`per_level4`).
+-   correlation between residuals and benchmark flow size
+-   spatial clustering among origin-level residuals
+-   correlation between origin-level residuals and an area covariate
 
-This section uses the same four-output comparison set as Levels 2 to 4. The
-optional Moran's I and LISA diagnostics need neighbour links. The Local
-Moran statistic itself uses reproducible four-nearest-neighbour links derived
-from the real LAD centroid distances returned by `debiasR_example_data()`.
-The LISA map uses a simplified ONS 2021 LAD boundary file when `sf` and
-network access are available. Readers can also set `DEBIAS_LAD_BOUNDARY_PATH`
-to a local `sf`-readable boundary file. The diagnostic should be interpreted
-as distance-neighbour rather than contiguity-neighbour LISA.
+In this example, the area covariate is the percentage of residents with
+Level 4 qualifications or above (`per_level4`). The spatial clustering checks require a definition of which areas are
+neighbours. The vignette helper `validation_prepare_lad_lisa_inputs()`
+constructs reproducible links between each LAD and its four nearest
+neighbours using the centroid distances returned by
+`debiasR_example_data()`. These are distance-based neighbours. The helper also looks for the LAD boundaries used by the map. It uses a
+public ONS 2021 boundary file or a local boundary file supplied through
+`DEBIAS_LAD_BOUNDARY_PATH`.
 
 ```{r prepare-residual-structure-inputs}
 validation_lisa_inputs <- validation_prepare_lad_lisa_inputs(
@@ -641,63 +709,61 @@ validation_lisa_inputs <- validation_prepare_lad_lisa_inputs(
   distance_df = distance_validation,
   distance_k = 4
 )
+
 structure_neighbors <- validation_lisa_inputs$neighbors
 validation_lisa_boundaries <- validation_lisa_inputs$boundaries
 validation_lisa_map_note <- validation_lisa_inputs$map_note
 
 structure_covariates <- covariates_validation |>
   dplyr::select(area, per_level4)
-
-structure_methods <- validation_methods
 ```
 
 ```{r level5-neighbor-note, echo=FALSE}
 cat(validation_lisa_inputs$note, "\n")
 ```
 
-```{r level5-residual-structure, include=FALSE}
+The `debiasR` function `validate_flow_residual_structure()` calculates
+the residual-flow correlation, Moran’s I, Local Moran’s I and the
+residual-covariate correlation. The vignette helper
+`validation_structure_results()` applies this function to each of the
+four adjustment results.
+
+```{r level5-residual-structure}
 residual_structure <- validation_structure_results(
   adjusted_outputs = validation_method_results,
   benchmark_df = benchmark_od,
   area_neighbors = structure_neighbors,
   covariate_df = structure_covariates,
   covariate_col = "per_level4",
-  methods = structure_methods,
+  methods = validation_methods,
   local_moran_nsim = 199,
   local_moran_seed = 20260613
 )
 ```
 
-Values close to zero are usually preferable for the residual-flow and
-residual-covariate correlations, because they suggest less obvious residual
-structure. For Moran's I, values close to zero suggest less spatial clustering
-under the supplied neighbour definition. These are diagnostic checks, not final
-proof that residuals are random.
+The function `plot_validation_structure()` summarises the three level 5 tests proposed above. A residual-flow correlation close to zero indicates that
+errors do not have an obvious linear relationship with benchmark flow
+size. A residual-covariate correlation close to zero indicates less
+evidence of a linear relationship with the selected area characteristic. For the spatial clustering test, we look at Moran’s $I$, which measures whether neighbouring areas have similar residuals. Positive values indicate spatial clustering, while values near zero indicate less evidence of an overall spatial pattern.
 
 ```{r level5-structure-plot}
 plot_validation_structure(
   residual_structure,
-  methods = structure_methods,
+  methods = validation_methods,
   method_labels = validation_plot_method_labels
 )
 ```
 
-Local Moran's I provides a local version of the spatial clustering check. The
-LISA class labels combine the sign of an area's centred residual with the
-weighted residual pattern in its neighbours. The p-values are permutation
-pseudo p-values from the supplied neighbour links, so they are best used as
-exploratory flags for local review.
-
-The LISA map below uses the same Local Moran output. Areas with raw permutation
-pseudo p-values above 0.05 are shown as not significant. The underlying Local
-Moran output records both raw and adjusted p-values, so the map should be read
-as an exploratory local screen rather than a multiple-testing-adjusted decision
-rule. Boundary polygons come from an ONS LAD boundary file, unless a local path
-is supplied with `DEBIAS_LAD_BOUNDARY_PATH`. LADs that are present in the
-boundary file but outside the validation support are retained in the same grey
-used for "not significant" areas rather than dropped from the map. Scottish
-boundary polygons are omitted because the validation example focuses on the
-England and Wales support used by the LAD data.
+While global Moran’s $I$ summarises spatial clustering across all areas, the local
+Moran’s $I$ examines each area separately and assigns it to a Local
+Indicators of Spatial Association (LISA) class. For the adjusted-versus-benchmark comparison, positive residuals mean that adjusted flows are below the benchmark and negative residuals mean that they are above it. Therefore, a high-high area in a LISA map has a positive
+residual and is surrounded by areas with positive residuals. A low-low
+area has a negative residual and is surrounded by areas with negative
+residuals. High-low and low-high areas are local spatial outliers. The function `plot_validation_lisa_map()` maps these local patterns.
+Areas without evidence of local spatial association at the selected
+threshold are shown as not significant. The map uses raw permutation
+pseudo $p$-values of 0.05, so it should be treated as an exploratory
+screen rather than a multiple-testing-adjusted decision rule.
 
 ```{r level5-lisa-map, fig.width=10, fig.height=12}
 if (is.null(validation_lisa_boundaries)) {
@@ -708,7 +774,7 @@ if (is.null(validation_lisa_boundaries)) {
     boundaries = validation_lisa_boundaries,
     boundary_area_col = "area",
     comparisons = "adjusted_vs_benchmark",
-    methods = structure_methods,
+    methods = validation_methods,
     method_labels = validation_plot_method_labels,
     cluster_col = "lisa_quadrant",
     p_value_col = "p_value",
@@ -720,60 +786,59 @@ if (is.null(validation_lisa_boundaries)) {
 }
 ```
 
+
+
 ## Recommendation
 
-Our recommendation is to adopt a sequence approach to validation. First, we
-suggest to analyse the overall metrics to assess if the resulting adjusted flows
-are broadly closer to the benchmark. Second, we recommend evaluating origin and
-destination marginal diagnostics to determine the precision of correction for
-area totals, and identify systematic under- or over-estimation for specific
-areas. Third, we suggest inspecting individual origin-destinations pairs to
-evaluate corridors of special interest, such as origin-destinations pairs that
-typically have large amounts of interaction.
+Our recommendation is to adopt a sequence approach to validation. First,
+we suggest to analyse the overall metrics to assess if the resulting
+adjusted flows are broadly closer to the benchmark. Second, we recommend
+evaluating origin and destination marginal diagnostics to determine the
+precision of correction for area totals and identify systematic under-
+or over-estimation for specific areas. Third, we suggest inspecting
+individual origin-destinations pairs to evaluate corridors of special
+interest, such as origin-destinations pairs that typically have large
+amounts of interaction.
 
-The validation methods presented here offer quantitative evidence to assist in
-the selection of which method to use. However, this decision is not binary and
-depends on a combination of qualitative and quantitative factors:
+The validation methods presented here offer quantitative evidence to
+assist in the selection of which method to use. However, this decision depends on a combination of qualitative and
+quantitative factors:
 
-- *Data availability*. Adjustment methods require different levels of inputs.
-  Simpler deterministic adjustment methods generally require fewer data inputs.
-  Yet, they often require target benchmark flow data, and these are precisely
-  the data inputs that we often do not have. Benchmark flow data often come
-  from censuses, which are considered the gold standard, but these data are
-  generally collected every ten or five years and are outdated when a crisis
-  occurs or a new evaluation of mobility is needed to support humanitarian
-  operations, planning or policy decisions. Hence, using an adjustment method
-  requiring census benchmark data would produce misleading results if it
-  represented the mobility network at the time of the census rather than the
-  mobility system during the period of interest. An adjustment method, such as
-  the proposed Bayesian multilevel modelling approach, that is not reliant on
-  such inputs may be more appropriate in such scenarios.
-- *Required measurement precision*. Adjustment methods have varying levels of
-  precision in terms of scale reproducing population numbers. Historically,
-  prior work has focused on satisfying the requirement of proportionality by
-  assessing the linear correlation between raw and/or adjusted
-  mobile-phone-derived flows and benchmark flows. Yet, such assessment does not
-  guarantee that raw or adjusted flows provide an accurate estimate in
-  population numbers. They often still represent number of devices, rather than
-  people. Except for the selection rate II method, all the methods in `debiasR`
-  seek to provide population numbers.
-- *Time constraint*. The adjustment methods in `debiasR` may demand more or
-  less time. Such demand will depend on processes such as data gathering, data
-  processing and calibrating adjustment methods. These demands normally
-  intersect and often come into conflict with the speed at which flow estimates
-  are needed. As suggested above, the use of digital trace data is often
-  triggered by the rapid and urgent need to have "rough" population numbers to
-  inform humanitarian, planning or policy decisions, to address a crisis or new
-  intervention.
+-   *Data availability*. Adjustment methods require different levels of
+    inputs. Simpler deterministic adjustment methods generally require
+    fewer data inputs. Yet, they often require target benchmark flow
+    data and these are precisely the data inputs that we often do not
+    have. Benchmark flow data often come from censuses, which are
+    considered the gold standard, but these data are generally collected
+    every ten or five years and are outdated when a crisis occurs or a
+    new evaluation of mobility is needed to support humanitarian
+    operations, planning or policy decisions. Hence, using an adjustment
+    method requiring census benchmark data would produce misleading
+    results if it represented the mobility network at the time of the
+    census rather than the mobility system during the period of
+    interest. An adjustment method, such as the proposed Bayesian
+    multilevel modelling approach, that is not reliant on such inputs
+    may be more appropriate in such scenarios.
+-   *Required measurement precision*. Adjustment methods have varying
+    levels of precision in terms of scale reproducing population
+    numbers. Prior work has focused on satisfying the
+    requirement of proportionality by assessing the linear correlation
+    between raw and/or adjusted mobile-phone-derived flows and benchmark
+    flows. Yet, such assessment does not guarantee that raw or adjusted
+    flows provide an accurate estimate in population numbers. Except for
+    the selection rate II method, all the methods in `debiasR` seek to
+    provide population numbers.
+-   *Time constraint*. The adjustment methods in `debiasR` may demand more or less time. Such demand will depend on processes such as data gathering, data processing and calibrating adjustment methods. As suggested above, the use of digital trace data is often triggered by the rapid and urgent
+    need to have "rough" population numbers to inform humanitarian,
+    planning or policy decisions, to address a crisis or new
+    intervention.
 
-## Model inputs used in this vignette
+## Adjustment methods used in this vignette {#sec-list-adjustment-methods}
 
-The table below states which inputs each method uses. This matters because
-methods do not all learn from the same information. We still validate all
-outputs on the same benchmark OD table and the same OD rows.
+The table below states which adjustment methods are used in this vignette and the data inputs required by each of them. Not all methods learn from the same information. Yet, for illustration purposes, we still validate all outputs on the same benchmark OD table and the same OD rows.
 
 ```{r method-inputs, echo=FALSE}
 validation_display_method_inputs(
-  methods = displayed_methods
+  methods = unique(c(level1_methods, validation_methods))
 )
 ```
