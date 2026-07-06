@@ -346,8 +346,8 @@ level1_method_results <- all_method_results[level1_methods]
 
 The `debiasR` function `validate_flow_overall()` calculates error and
 correlation measures across all OD pairs. To apply it to each adjustment
-method, this vignette uses the package helper
-`validate_flow_overall_methods()`. Setting
+method, this vignette uses the exported `debiasR` method-comparison
+function `validate_flow_overall_methods()`. Setting
 `comparisons = "adjusted_vs_benchmark"` compares each result with the
 Census benchmark.
 
@@ -439,8 +439,9 @@ validation_methods <- c(
 validation_method_results <- all_method_results[validation_methods]
 ```
 
-The package helper `validate_flow_margins()` sums the OD
-flows by origin or destination. The package helper
+The exported `debiasR` margin-preparation function
+`validate_flow_margins()` sums the OD flows by origin or destination.
+The exported `debiasR` method-comparison function
 `validate_flow_overall_methods()` then applies the `debiasR` function
 `validate_flow_overall()` to each method.
 
@@ -470,7 +471,8 @@ destination_margin_metrics <- validate_flow_overall_methods(
 )
 ```
 
-We produce a first figure to compare origin totals. The package helper
+We produce a first figure to compare origin totals. The exported
+`debiasR` method-comparison function
 `validate_flow_residual_methods()` applies the function
 `validate_flow_residuals()` to each method. The function
 `validate_flow_plot_scatter()` plots the results. Each point represents one
@@ -550,9 +552,9 @@ errors. We continue with the four adjustment results selected in Level
 
 The function `validate_flow_residuals()` calculates signed and absolute
 residuals for every OD pair. It also identifies the OD pairs with the
-largest remaining errors. The package helper
-`validate_flow_residual_methods()` applies this function to each adjustment
-method.
+largest remaining errors. The exported `debiasR` method-comparison
+function `validate_flow_residual_methods()` applies this function to
+each adjustment method.
 
 ```{r level3-residual-summary}
 flow_residuals <- validate_flow_residual_methods(
@@ -624,7 +626,7 @@ Jensen-Shannon divergence. The Jensen-Shannon divergence provides a
 symmetric measure of the difference between two distributions. Lower
 values indicate that the adjusted and benchmark destination shares are
 more similar. A value of zero would mean that they have identical
-destination shares. The package helper
+destination shares. The exported `debiasR` method-comparison function
 `validate_flow_distribution_methods()` applies this function to each
 adjustment method.
 
@@ -724,9 +726,9 @@ cat(validation_lisa_inputs$note, "\n")
 
 The `debiasR` function `validate_flow_residual_structure()` calculates
 the residual-flow correlation, Moran’s I, Local Moran’s I and the
-residual-covariate correlation. The package helper
-`validate_flow_residual_structure_methods()` applies this function to each of the
-four adjustment results.
+residual-covariate correlation. The exported `debiasR`
+method-comparison function `validate_flow_residual_structure_methods()`
+applies this function to each of the four adjustment results.
 
 ```{r level5-residual-structure}
 residual_structure <- validate_flow_residual_structure_methods(
