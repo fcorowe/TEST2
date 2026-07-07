@@ -14,6 +14,9 @@
 
 ### Adjustment workflows
 
+- Simplified the v06 adjustment vignette's method summary table so it focuses
+  on method, benchmark role, rationale, strengths, and limitations, and renamed
+  the adjustment-methods section for clearer scanning.
 - Added `adjust_all_methods()` as an exported convenience function for fitting
   the main adjustment methods on the same MPD, coverage, benchmark, covariate,
   and distance inputs. The adjustment vignette now uses this package function
