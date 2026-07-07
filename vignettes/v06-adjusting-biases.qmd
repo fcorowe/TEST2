@@ -80,7 +80,7 @@ Let us recall the notation:
 | $d_{ij}$         | Distance between origin $i$ and destination $j$.        |
 | $X_i, X_j$       | Origin and destination covariates, such as rural share. |
 
-## List of flow adjustment methods in `debiasR`
+## Adjustment methods in `debiasR`
 
 This vignette covers the six bias adjustment methods currently available
 in `debiasR`. The table below illustrates how they map onto `debiasR`
@@ -894,93 +894,48 @@ tibble::tibble(
 
 ## Method summary
 
-As described above, each of the adjustment methods implemented via
-`debiasR` has different assumptions, input data requirements, strengths
-and weaknesses. The table below offers a summary which can be used as a
-conceptual guide helping users identify which method is more appropriate
-given their purpose and constraints.
+As described above, each adjustment method in `debiasR` has different
+assumptions, data needs, strengths and limitations. The table below
+focuses on the main differences readers need when choosing a method:
+whether the method uses benchmark information during fitting, why the
+method is useful, and where it is most likely to fall short.
 
 ```{r results='asis', echo=FALSE}
-eq_stack <- function(...) {
-  paste0(
-    "<div class='eq-stack'>",
-    paste0("<div class='eq-line'>", c(...), "</div>", collapse = ""),
-    "</div>"
-  )
-}
-
 method_summary <- tibble::tribble(
-  ~Method, ~`Correction<br>level`, ~`How the correction<br>is applied`, ~Rationale, ~Equation, ~`Benchmark<br>population`, ~`Active<br>users`, ~`Benchmark<br>OD flows`, ~Covariates, ~Strengths, ~Limitations,
+  ~Method, ~`Benchmark role`, ~Rationale, ~Strengths, ~Limitations,
   "Inverse Penetration Rate Weights",
-  "Area-specific coverage correction",
-  "Applies origin, destination, or both-side coverage weights using <code>weight_by</code>.",
+  "Not benchmark-trained. Uses benchmark population and active-user counts, but not benchmark OD flows.",
   "Inflates observed flows using population-to-user ratios where coverage is thin.",
-  eq_stack(
-    "<i>w</i><sub>i</sub> = P<sub>i</sub> / U<sub>i</sub>",
-    "<i>F</i><sup>adj</sup><sub>ij</sub> = <i>F</i><sup>mpd</sup><sub>ij</sub> &times; <i>w</i><sub>i</sub>, <i>w</i><sub>j</sub>, or &radic;(<i>w</i><sub>i</sub><i>w</i><sub>j</sub>)"
-  ),
-  "Yes", "Yes", "No", "No",
   "Simple, transparent, fast, and does not require benchmark OD flows.",
   "Can overinflate sparse areas and misses compositional selection bias.",
 
   "Selection Rate",
-  "Area-specific selection correction",
-  "Applies origin, destination, or both-side selection weights controlled by a global <i>r</i><sub>t</sub> parameter.",
+  "Optionally benchmark-assisted. Can calibrate the selection parameter against benchmark OD flows; otherwise uses coverage and covariates.",
   "Uses coverage, covariates, and optional benchmark calibration to model differential selection.",
-  eq_stack(
-    "<i>w</i><sub>i</sub>(<i>r</i><sub>t</sub>) = 1 / (I<sub>i</sub><i>c</i><sub>i</sub> + (1 - I<sub>i</sub>)<i>r</i><sub>t</sub>)",
-    "<i>F</i><sup>adj</sup><sub>ij</sub> = <i>F</i><sup>mpd</sup><sub>ij</sub> &times; <i>w</i><sub>ij</sub>"
-  ),
-  "Yes", "Yes", "Optional", "Yes",
   "More flexible than inverse penetration and can use benchmark calibration.",
   "Depends on covariate quality, calibration choices, and a meaningful selection parameter.",
 
   "Selection Rate II",
-  "Area-specific nonlinear coverage correction",
-  "Applies origin, destination, or both-side coverage correction controlled by a global <code>k</code> parameter.",
+  "Optionally benchmark-assisted. Can calibrate the global <code>k</code> parameter against benchmark OD flows; otherwise uses a supplied or default <code>k</code>.",
   "Applies a compact coverage correction with optional <code>k</code> calibration.",
-  eq_stack(
-    "CF(<i>c</i>; <i>k</i>) = <i>c</i> &times; (exp(-<i>k</i>) - 1) / (exp(-<i>k</i><i>c</i>) - 1)",
-    "<i>F</i><sup>adj</sup><sub>ij</sub> = <i>F</i><sup>mpd</sup><sub>ij</sub> &times; CF(...)"
-  ),
-  "Yes", "Yes", "Optional", "No",
   "Parsimonious, interpretable, and lighter than a covariate-rich adjustment.",
   "Less flexible when bias varies strongly across areas.",
 
   "Raking Ratio (or Iterative proportional fitting)",
-  "Margin-constrained correction",
-  "Iteratively rescales OD cells so adjusted origin and/or destination totals match supplied margins.",
+  "Benchmark-margin assisted. Uses benchmark origin and destination margins, or user-supplied targets, rather than fitting to each OD cell.",
   "Uses iterative proportional fitting so adjusted flows match trusted origin and destination margins.",
-  eq_stack(
-    "<i>F</i><sup>adj</sup><sub>ij</sub> = <i>F</i><sup>mpd</sup><sub>ij</sub> &times; <i>w</i><sub>ij</sub>",
-    "&Sigma;<sub>j</sub><i>F</i><sup>adj</sup><sub>ij</sub> = O<sub>i</sub> and &Sigma;<sub>i</sub><i>F</i><sup>adj</sup><sub>ij</sub> = D<sub>j</sub>"
-  ),
-  "Optional as targets", "No", "Yes or user targets", "No",
   "Guarantees consistency with supplied marginal totals.",
   "Matching margins does not guarantee correct destination allocation within each origin.",
 
   "Coefficient regression modelling",
-  "Global coefficient correction",
-  "Estimates a multiplicative coefficient from MPD-benchmark overlap and applies it to the MPD table.",
+  "Benchmark-trained. Fits the MPD-to-benchmark relationship using benchmark OD cells.",
   "Learns a direct mapping from MPD flows to benchmark flows and applies it to the MPD table.",
-  eq_stack(
-    "E[<i>F</i><sup>bench</sup><sub>ij</sub>] = &beta; <i>F</i><sup>mpd</sup><sub>ij</sub>",
-    "log(&mu;<sub>ij</sub>) = &alpha; + log(<i>F</i><sup>mpd</sup><sub>ij</sub>)"
-  ),
-  "No", "No", "Yes", "No",
   "Direct benchmark-driven calibration with several model families.",
   "Benchmark quality is critical and a global coefficient can miss local heterogeneity.",
 
   "Bayesian multilevel modelling",
-  "Model-based corridor correction",
-  "Predicts OD-specific adjusted flows from a true-flow formula and a coverage-offset observation model.",
+  "Not benchmark-trained. Uses coverage and covariates during fitting; benchmark OD flows are reserved for external validation.",
   "Fits a count model where active-user coverage enters as a fixed observation-process offset, then returns the estimated true-flow scale.",
-  eq_stack(
-    "log E(<i>F</i><sup>mpd</sup><sub>ij</sub>) = log(<i>q</i><sub>ij</sub>) + &eta;<sup>true</sup><sub>ij</sub>",
-    "&eta;<sup>true</sup><sub>ij</sub> = &alpha; + X<sub>i</sub>&beta;<sub>o</sub> + X<sub>j</sub>&beta;<sub>d</sub> + &gamma;log(<i>d</i><sub>ij</sub>)",
-    "<i>F</i><sup>adj</sup><sub>ij</sub> = exp(&eta;<sup>true</sup><sub>ij</sub>)"
-  ),
-  "Yes", "Yes", "No", "Yes",
   "Richer structure, no benchmark OD needed for fitting, posterior uncertainty, and a path to source/time-aware partial pooling.",
   "Heavier runtime and dependencies; posterior fitting requires sampler diagnostics and should be compared externally against benchmark-calibrated methods."
 )
@@ -1030,7 +985,7 @@ main table td {
 }
 
 .method-summary-table {
-  min-width: 1650px;
+  min-width: 1050px;
 }
 
 .method-summary-table th,
@@ -1039,17 +994,5 @@ main table td {
   white-space: normal;
 }
 
-.eq-stack {
-  font-family: "Cambria Math", "STIX Two Text", "Times New Roman", serif;
-  line-height: 1.45;
-}
-
-.eq-line {
-  display: block;
-}
-
-.eq-line + .eq-line {
-  margin-top: 0.25rem;
-}
 </style>
 ```
