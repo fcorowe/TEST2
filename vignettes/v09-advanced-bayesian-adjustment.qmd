@@ -205,13 +205,13 @@ This section gives the general equations behind the three model
 variants. The notation is deliberately close to the `debiasR` inputs and
 outputs:
 
-- \(Y_{ij}\) is the observed MPD `flow` from origin \(i\) to
-  destination \(j\).
-- \(Y_{ijst}\) is the observed MPD `flow` for origin \(i\),
-  destination \(j\), source \(s\) and time period \(t\).
-- \(q\) is the `observation_probability` derived from the selected
+- $Y_{ij}$ is the observed MPD `flow` from origin $i$ to
+  destination $j$.
+- $Y_{ijst}$ is the observed MPD `flow` for origin $i$,
+  destination $j$, source $s$ and time period $t$.
+- $q$ is the `observation_probability` derived from the selected
   `coverage_scale`.
-- \(F^{true}\) is the true-flow intensity targeted by the true-flow model
+- $F^{\mathrm{true}}$ is the true-flow intensity targeted by the true-flow model
   variants.
 - `flow_mpd_pred` is the fitted MPD-scale prediction.
 - `flow_true_pred` is the fitted true-flow-scale prediction where that
@@ -230,16 +230,22 @@ flow, or an MPD-scale counterfactual.
 The `coverage_offset` model treats the observed MPD flow as a
 coverage-scaled observation of a true OD flow:
 
-\[ Y_{ij} \sim \operatorname{Poisson}(q_{ij} F^{true}_{ij}) \]
+$$
+Y_{ij} \sim \operatorname{Poisson}(q_{ij} F^{\mathrm{true}}_{ij})
+$$
 
-\[ \log{E(Y_{ij})} = \log(q_{ij}) + \eta^{true}_{ij} \]
+$$
+\log{E(Y_{ij})} = \log(q_{ij}) + \eta^{\mathrm{true}}_{ij}
+$$
 
-\[ \eta^{true}_{ij} = \alpha + X_i \beta_o + X_j \beta_d +
-\gamma \log(d_{ij}) + u_i \]
+$$
+\eta^{\mathrm{true}}_{ij} = \alpha + X_i \beta_o + X_j \beta_d +
+\gamma \log(d_{ij}) + u_i
+$$
 
-Here, \(X_i\) and \(X_j\) are origin and destination covariates,
-\(d_{ij}\) is distance and \(u_i\) is an optional origin random
-intercept. The offset \(\log(q_{ij})\) enters the observation equation,
+Here, $X_i$ and $X_j$ are origin and destination covariates,
+$d_{ij}$ is distance and $u_i$ is an optional origin random
+intercept. The offset $\log(q_{ij})$ enters the observation equation,
 so the model estimates
 a true-flow intensity and then maps it back to the MPD observation
 scale.
@@ -256,15 +262,21 @@ or the same OD pair may be observed across several time periods. The
 model separates a shared hidden flow from the source/time observation
 process:
 
-\[ Y_{ijst} \sim \operatorname{Poisson}(\mu_{ijst}) \]
+$$
+Y_{ijst} \sim \operatorname{Poisson}(\mu_{ijst})
+$$
 
-\[ \log(\mu_{ijst}) = \log(q_{ijst}) + \theta_{g(i,j,t)} +
-z_{ijst}\gamma \]
+$$
+\log(\mu_{ijst}) = \log(q_{ijst}) + \theta_{g(i,j,t)} +
+z_{ijst}\gamma
+$$
 
-\[ \theta_{g(i,j,t)} \sim
-\operatorname{Normal}(\eta^{true}_{g(i,j,t)}, \sigma_\theta) \]
+$$
+\theta_{g(i,j,t)} \sim
+\operatorname{Normal}(\eta^{\mathrm{true}}_{g(i,j,t)}, \sigma_\theta)
+$$
 
-The term \(\theta_{g(i,j,t)}\) is the latent true-flow state shared by
+The term $\theta_{g(i,j,t)}$ is the latent true-flow state shared by
 the rows that refer to the same OD or OD-time unit. The argument
 `latent_flow_unit` controls whether that state is defined at the OD
 level or the OD-time level. The returned column `latent_flow_id`
@@ -279,12 +291,16 @@ because it includes the observation layer.
 The `reduced_form` model stays on the MPD observation scale. It models
 the observed MPD flow directly:
 
-\[ Y_{ij} \sim \operatorname{Poisson}(\lambda^{mpd}_{ij}) \]
+$$
+Y_{ij} \sim \operatorname{Poisson}(\lambda^{\mathrm{mpd}}_{ij})
+$$
 
-\[ \log(\lambda^{mpd}_{ij}) = \alpha + X_i \beta_o + X_j \beta_d +
-\gamma \log(d_{ij}) + B_{ij}\delta \]
+$$
+\log(\lambda^{\mathrm{mpd}}_{ij}) = \alpha + X_i \beta_o + X_j \beta_d +
+\gamma \log(d_{ij}) + B_{ij}\delta
+$$
 
-The term \(B_{ij}\delta\) represents the fitted bias component supplied
+The term $B_{ij}\delta$ represents the fitted bias component supplied
 through `bias_formula`. The adjusted value is a counterfactual MPD
 prediction in which the fitted bias component is set to its neutral
 value.
@@ -523,7 +539,7 @@ v09_kable(latent_diagnostics)
 
 Users should inspect `attr(adj_latent_two_level, "diagnostics")`
 carefully. For latent models, important fields include divergent
-transitions, treedepth hits, effective sample sizes and (\widehat{R}).
+transitions, treedepth hits, effective sample sizes and $\widehat{R}$.
 
 ### `reduced_form`
 
