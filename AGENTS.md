@@ -71,7 +71,8 @@ Testing:
   fast-tests job pass through its explicit skip step instead of forcing a full
   package test run; pkgdown still builds website-facing changes.
 - For broader local development checks that should load the package with
-  `devtools::load_all()`, use `Rscript scripts/run_dev_tests.R`.
+  `devtools::load_all()`, use `Rscript scripts/run_dev_tests.R`; it excludes
+  the optional Bayesian test file unless `DEBIASR_RUN_BAYESIAN=true`.
 - For narrow validation changes, targeted `testthat` runs are acceptable before the full fast tier.
 - Optional Bayesian checks use `Rscript scripts/run_bayesian_tests.R <scope>`.
   Local scopes include `smoke`, `rstanarm-smoke`, `rstanarm`,
@@ -124,6 +125,13 @@ Documentation:
   `Rscript scripts/precompute_v07_validation_bayesian_example.R`, and then
   `Rscript scripts/precompute_v09_bayesian_real_data_summary.R` when v09 needs
   the derived real-data evidence tables.
+- Generate v07 `latent_two_level` rows separately with
+  `Rscript scripts/precompute_v07_validation_latent_two_level.R`. This is a
+  manual `rstan` long run using external HTW inputs under
+  `/Volumes/DEBIAS/data/outputs/flows/htw`, not routine vignette-render work.
+  For a bounded smoke run, set `DEBIAS_V07_LATENT_SCENARIO=s3`,
+  `DEBIAS_V07_LATENT_MAX_OD=50`, and an output directory outside the repository
+  with `DEBIAS_V07_LATENT_OUT_DIR`.
 - Fold exported `plot_validation_*()` examples into the existing validation
   vignette. Keep `notes/project-management/VALIDATION_VISUAL_PROTOTYPES.qmd`
   as internal design/review material.
